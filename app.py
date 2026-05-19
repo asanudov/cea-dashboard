@@ -12,23 +12,39 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS
+# ESTILO
 # =====================================================
 
 st.markdown(
     """
     <style>
 
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+    /* =====================================================
+       IMPORTAR FONT AKT
+    ===================================================== */
+
+    @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
+
+    /* =====================================================
+       FONT GLOBAL
+    ===================================================== */
 
     html, body, [class*="css"]  {
-        font-family: 'Manrope', sans-serif;
+        font-family: 'Akt', sans-serif;
     }
+
+    /* =====================================================
+       COMPACTAR
+    ===================================================== */
 
     .block-container{
         padding-top: 1rem;
         padding-bottom: 0rem;
     }
+
+    /* =====================================================
+       KPIs
+    ===================================================== */
 
     div[data-testid="stMetric"]{
         background-color: #f8f9fa;
@@ -37,8 +53,12 @@ st.markdown(
         border: 1px solid #e6e6e6;
     }
 
+    /* =====================================================
+       TITULOS
+    ===================================================== */
+
     h1, h2, h3 {
-        font-family: 'Manrope', sans-serif !important;
+        font-family: 'Akt', sans-serif !important;
         font-weight: 700 !important;
     }
 
@@ -51,7 +71,7 @@ st.markdown(
 # HEADER
 # =====================================================
 
-col_logo, col_titulo = st.columns([0.7, 4.3])
+col_logo, col_titulo = st.columns([0.7,4.3])
 
 with col_logo:
 
@@ -86,20 +106,19 @@ with col_titulo:
     )
 
 # =====================================================
-# CARGAR ARCHIVOS
+# CARGAR ARCHIVO
 # =====================================================
 
-archivos = st.file_uploader(
-    "📂 Subir archivos Excel",
-    type=["xlsx"],
-    accept_multiple_files=True
+archivo = st.file_uploader(
+    "📂 Subir archivo Excel",
+    type=["xlsx"]
 )
 
 # =====================================================
-# MENSAJE INICIAL
+# DESCRIPCIÓN
 # =====================================================
 
-if not archivos:
+if archivo is None:
 
     st.markdown("""
     ### Calcula automáticamente:
@@ -109,221 +128,261 @@ if not archivos:
     - Caudal promedio (lps)
     - Volumen total (m³)
     - MNF (Minimum Night Flow)
-    
-    ### Además:
-    
-    - Comparación entre múltiples archivos
-    - Comparación de MNF
-    - Comparación de caudales
-    - Comparación de Q promedio
-    - Encendido/apagado de curvas
     """)
 
-    st.info("⬆️ Carga uno o más archivos para comenzar.")
+    st.info("⬆️ Carga un archivo para comenzar.")
 
 # =====================================================
-# EJECUCIÓN
+# PROCESAMIENTO
 # =====================================================
 
-if archivos:
+if archivo is not None:
 
     ejecutar = st.button("▶ Ejecutar cálculo")
 
     if ejecutar:
 
         # =====================================================
-        # COLORES
+        # LEER EXCEL
         # =====================================================
 
-        colores = [
-            "#1f77b4",
-            "#d62728",
-            "#2ca02c",
-            "#ff7f0e",
-            "#9467bd",
-            "#17becf"
-        ]
+        df = pd.read_excel(archivo)
 
         # =====================================================
-        # RESULTADOS
+        # LIMPIAR COLUMNAS
         # =====================================================
 
-        resultados = []
+        df.columns = df.columns.str.strip()
 
         # =====================================================
-        # FIGURA
+        # RENOMBRAR
         # =====================================================
 
-        fig = go.Figure()
+        df = df.rename(columns={
+            "Data Logger": "Variable",
+            "Fecha y hora": "FechaHora",
+            "Media": "Valor"
+        })
 
         # =====================================================
-        # TODOS LOS Q
+        # FECHA
         # =====================================================
 
-        todos_q = []
+        df["FechaHora"] = pd.to_datetime(
+            df["FechaHora"],
+            dayfirst=True
+        )
 
         # =====================================================
-        # LOOP ARCHIVOS
+        # NUMÉRICOS
         # =====================================================
 
-        for i, archivo in enumerate(archivos):
+        df["Valor"] = (
+            df["Valor"]
+            .astype(str)
+            .str.replace(",", ".", regex=False)
+            .astype(float)
+        )
 
-            color = colores[i % len(colores)]
+        # =====================================================
+        # ORDEN
+        # =====================================================
 
-            nombre_archivo = archivo.name.replace(".xlsx", "")
+        df = df.sort_values("FechaHora")
 
-            # =====================================================
-            # LEER EXCEL
-            # =====================================================
+        # =====================================================
+        # FILTROS
+        # =====================================================
 
-            df = pd.read_excel(archivo)
+        p1 = df[df["Variable"] == "P1"].copy()
+        p2 = df[df["Variable"] == "P2"].copy()
+        q = df[df["Variable"] == "Q"].copy()
 
-            # =====================================================
-            # LIMPIAR COLUMNAS
-            # =====================================================
+        # =====================================================
+        # PROMEDIOS
+        # =====================================================
 
-            df.columns = df.columns.str.strip()
+        p1_promedio = p1["Valor"].mean()
+        p2_promedio = p2["Valor"].mean()
+        q_promedio = q["Valor"].mean()
 
-            # =====================================================
-            # RENOMBRAR
-            # =====================================================
+        # =====================================================
+        # DELTA T
+        # =====================================================
 
-            df = df.rename(columns={
-                "Data Logger": "Variable",
-                "Fecha y hora": "FechaHora",
-                "Media": "Valor"
-            })
+        q["Delta_t_s"] = (
+            q["FechaHora"]
+            .diff()
+            .dt.total_seconds()
+        )
 
-            # =====================================================
-            # FECHA
-            # =====================================================
+        q["Delta_t_s"] = q["Delta_t_s"].fillna(0)
 
-            df["FechaHora"] = pd.to_datetime(
-                df["FechaHora"],
-                dayfirst=True
-            )
+        # =====================================================
+        # VOLUMEN
+        # =====================================================
 
-            # =====================================================
-            # NUMÉRICO
-            # =====================================================
+        q["Volumen_m3"] = (
+            q["Valor"] * q["Delta_t_s"]
+        ) / 1000
 
-            df["Valor"] = (
-                df["Valor"]
-                .astype(str)
-                .str.replace(",", ".", regex=False)
-                .astype(float)
-            )
+        volumen_total = q["Volumen_m3"].sum()
 
-            # =====================================================
-            # ORDEN
-            # =====================================================
+        # =====================================================
+        # MNF
+        # =====================================================
 
-            df = df.sort_values("FechaHora")
+        q["Hora"] = q["FechaHora"].dt.hour
 
-            # =====================================================
-            # FILTROS
-            # =====================================================
+        q_noche = q[
+            (q["Hora"] >= 2) &
+            (q["Hora"] < 4)
+        ].copy()
 
-            p1 = df[df["Variable"] == "P1"].copy()
-            p2 = df[df["Variable"] == "P2"].copy()
-            q = df[df["Variable"] == "Q"].copy()
+        if not q_noche.empty:
 
-            # =====================================================
-            # GUARDAR TODOS LOS Q
-            # =====================================================
+            q_noche = q_noche.sort_values("FechaHora")
 
-            todos_q.extend(q["Valor"].tolist())
-
-            # =====================================================
-            # PROMEDIOS
-            # =====================================================
-
-            p1_promedio = p1["Valor"].mean()
-            p2_promedio = p2["Valor"].mean()
-            q_promedio = q["Valor"].mean()
-
-            # =====================================================
-            # DELTA T
-            # =====================================================
-
-            q["Delta_t_s"] = (
-                q["FechaHora"]
+            intervalo_min = (
+                q_noche["FechaHora"]
                 .diff()
                 .dt.total_seconds()
+                .median()
+            ) / 60
+
+            muestras_60min = max(
+                1,
+                int(60 / intervalo_min)
             )
 
-            q["Delta_t_s"] = q["Delta_t_s"].fillna(0)
-
-            # =====================================================
-            # VOLUMEN
-            # =====================================================
-
-            q["Volumen_m3"] = (
-                q["Valor"] * q["Delta_t_s"]
-            ) / 1000
-
-            volumen_total = q["Volumen_m3"].sum()
-
-            # =====================================================
-            # MNF
-            # =====================================================
-
-            q["Hora"] = q["FechaHora"].dt.hour
-
-            q_noche = q[
-                (q["Hora"] >= 2) &
-                (q["Hora"] < 4)
-            ].copy()
-
-            if not q_noche.empty:
-
-                q_noche = q_noche.sort_values("FechaHora")
-
-                intervalo_min = (
-                    q_noche["FechaHora"]
-                    .diff()
-                    .dt.total_seconds()
-                    .median()
-                ) / 60
-
-                muestras_60min = max(
-                    1,
-                    int(60 / intervalo_min)
+            q_noche["Rolling_MNF"] = (
+                q_noche["Valor"]
+                .rolling(
+                    window=muestras_60min,
+                    min_periods=1
                 )
+                .mean()
+            )
 
-                q_noche["Rolling_MNF"] = (
-                    q_noche["Valor"]
-                    .rolling(
-                        window=muestras_60min,
-                        min_periods=1
-                    )
-                    .mean()
-                )
+            idx_nmf = q_noche["Rolling_MNF"].idxmin()
 
-                idx_nmf = q_noche["Rolling_MNF"].idxmin()
+            nmf = q_noche.loc[idx_nmf, "Rolling_MNF"]
 
-                nmf = q_noche.loc[idx_nmf, "Rolling_MNF"]
+            hora_nmf = q_noche.loc[idx_nmf, "FechaHora"]
 
-            else:
+        else:
 
-                nmf = None
+            nmf = None
+            hora_nmf = None
 
-            # =====================================================
-            # RESULTADOS
-            # =====================================================
+        # =====================================================
+        # KPIs
+        # =====================================================
 
-            resultados.append({
+        st.divider()
 
-                "Archivo": nombre_archivo,
-                "P. aguas arriba": round(p1_promedio, 2),
-                "P. aguas abajo": round(p2_promedio, 2),
-                "Q promedio": round(q_promedio, 2),
-                "Volumen total": round(volumen_total, 2),
-                "MNF": round(nmf, 2) if nmf is not None else "-"
+        col1, col2, col3, col4, col5 = st.columns(5)
+
+        col1.metric(
+            "P. aguas arriba",
+            f"{p1_promedio:.2f} bar"
+        )
+
+        col2.metric(
+            "P. aguas abajo",
+            f"{p2_promedio:.2f} bar"
+        )
+
+        col3.metric(
+            "Q promedio",
+            f"{q_promedio:.2f} lps"
+        )
+
+        col4.metric(
+            "Volumen total",
+            f"{volumen_total:.1f} m³"
+        )
+
+        if nmf is not None:
+
+            col5.metric(
+                "MNF",
+                f"{nmf:.2f} lps"
+            )
+
+        # =====================================================
+        # LAYOUT
+        # =====================================================
+
+        col_izq, col_der = st.columns([1, 2.3])
+
+        # =====================================================
+        # TABLA
+        # =====================================================
+
+        with col_izq:
+
+            st.subheader("📋 Resumen")
+
+            resultado = pd.DataFrame({
+
+                "Indicador": [
+                    "P. aguas arriba",
+                    "P. aguas abajo",
+                    "Q promedio",
+                    "Volumen total",
+                    "MNF"
+                ],
+
+                "Valor": [
+                    round(p1_promedio, 2),
+                    round(p2_promedio, 2),
+                    round(q_promedio, 2),
+                    round(volumen_total, 2),
+                    round(nmf, 2) if nmf is not None else "-"
+                ],
+
+                "Unidad": [
+                    "bar",
+                    "bar",
+                    "lps",
+                    "m³",
+                    "lps"
+                ]
             })
 
+            st.dataframe(
+                resultado,
+                use_container_width=True,
+                height=230
+            )
+
+            if hora_nmf is not None:
+
+                st.success(
+                    f"""
+                    🌙 MNF detectado
+                    
+                    Hora:
+                    {hora_nmf.strftime('%d/%m/%Y %H:%M')}
+                    
+                    Valor:
+                    {nmf:.2f} lps
+                    """
+                )
+
+        # =====================================================
+        # GRÁFICA
+        # =====================================================
+
+        with col_der:
+
+            st.subheader("📉 Serie temporal de caudal")
+
+            fig = go.Figure()
+
             # =====================================================
-            # CURVA CAUDAL
+            # CAUDAL
             # =====================================================
 
             fig.add_trace(
@@ -332,16 +391,16 @@ if archivos:
                     x=q["FechaHora"],
                     y=q["Valor"],
                     mode="lines",
-                    name=f"Q - {nombre_archivo}",
+                    name="Caudal en lps",
                     line=dict(
                         width=2,
-                        color=color
+                        color="blue"
                     )
                 )
             )
 
             # =====================================================
-            # LÍNEA Q PROMEDIO
+            # CAUDAL PROMEDIO
             # =====================================================
 
             fig.add_trace(
@@ -350,17 +409,17 @@ if archivos:
                     x=[q["FechaHora"].min(), q["FechaHora"].max()],
                     y=[q_promedio, q_promedio],
                     mode="lines",
-                    name=f"Q Promedio - {nombre_archivo}",
+                    name="Caudal promedio",
                     line=dict(
-                        dash="dot",
                         width=2,
-                        color=color
+                        color="red",
+                        dash="dot"
                     )
                 )
             )
 
             # =====================================================
-            # LÍNEA MNF
+            # MNF
             # =====================================================
 
             if nmf is not None:
@@ -371,107 +430,75 @@ if archivos:
                         x=[q["FechaHora"].min(), q["FechaHora"].max()],
                         y=[nmf, nmf],
                         mode="lines",
-                        name=f"MNF - {nombre_archivo}",
+                        name="MNF",
                         line=dict(
-                            dash="dash",
                             width=2,
-                            color=color
+                            color="green",
+                            dash="dash"
                         )
                     )
                 )
 
-        # =====================================================
-        # DATAFRAME RESULTADOS
-        # =====================================================
-
-        resultado_df = pd.DataFrame(resultados)
-
-        # =====================================================
-        # TABLA
-        # =====================================================
-
-        st.divider()
-
-        st.subheader("📋 Resumen comparativo")
-
-        st.dataframe(
-            resultado_df,
-            use_container_width=True,
-            height=250
-        )
-
-        # =====================================================
-        # GRÁFICA
-        # =====================================================
-
-        st.divider()
-
-        st.subheader("📉 Comparación de caudales")
-
-        # =====================================================
-        # LÍMITES Y
-        # =====================================================
-
-        y_min = min(todos_q) * 0.9
-        y_max = max(todos_q) * 1.1
-
-        # =====================================================
-        # LAYOUT FIGURA
-        # =====================================================
-
-        fig.update_layout(
-
-            height=650,
-
-            margin=dict(
-                l=10,
-                r=10,
-                t=40,
-                b=10
-            ),
-
-            xaxis_title="Fecha y hora",
-            yaxis_title="Caudal (lps)",
-
-            hovermode="x unified",
-
-            xaxis=dict(
-                rangeslider=dict(visible=True),
-                fixedrange=False
-            ),
-
             # =====================================================
-            # BLOQUEAR ZOOM VERTICAL
+            # LÍMITES EJE Y
             # =====================================================
 
-            yaxis=dict(
-                fixedrange=True,
-                range=[y_min, y_max]
-            ),
+            y_min = q["Valor"].min() * 0.9
+            y_max = q["Valor"].max() * 1.1
 
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
+            # =====================================================
+            # LAYOUT FIGURA
+            # =====================================================
+
+            fig.update_layout(
+
+                height=470,
+
+                margin=dict(
+                    l=10,
+                    r=10,
+                    t=40,
+                    b=10
+                ),
+
+                xaxis_title="Fecha y hora",
+                yaxis_title="Caudal (lps)",
+
+                hovermode="x unified",
+
+                xaxis=dict(
+                    rangeslider=dict(visible=True),
+                    fixedrange=False
+                ),
+
+                yaxis=dict(
+                    fixedrange=True,
+                    range=[y_min, y_max]
+                ),
+
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
             )
-        )
 
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
 
         # =====================================================
-        # DESCARGAR CSV
+        # DESCARGA
         # =====================================================
 
-        csv = resultado_df.to_csv(index=False).encode("utf-8")
+        csv = resultado.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            label="📥 Descargar resumen comparativo",
+            label="📥 Descargar resumen",
             data=csv,
-            file_name="Resumen_Comparativo_CEA.csv",
+            file_name="Resumen_Dashboard_CEA.csv",
             mime="text/csv"
         )
