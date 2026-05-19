@@ -39,7 +39,11 @@ div[data-testid="stMetric"]{
 
 col_logo, col_titulo = st.columns([1,4])
 
+col_logo, col_titulo = st.columns([0.7,4.3])
+
 with col_logo:
+
+    st.markdown("<div style='padding-top:25px;'></div>", unsafe_allow_html=True)
 
     st.image(
         "logo.png",
@@ -50,7 +54,7 @@ with col_titulo:
 
     st.markdown(
         """
-        <h1 style='padding-top:25px;'>
+        <h1 style='margin-bottom:0px;'>
         Dashboard para Datos de Gestión de Presiones
         </h1>
         """,
@@ -59,8 +63,11 @@ with col_titulo:
 
     st.markdown(
         """
-        ### Desarrollado por M.I. Alan Sañudo
-        """
+        <h3 style='margin-top:0px; color:#444444;'>
+        Desarrollado por M.I. Alan Sañudo
+        </h3>
+        """,
+        unsafe_allow_html=True
     )
 
 # =====================================================
