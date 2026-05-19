@@ -20,17 +20,17 @@ st.markdown(
     <style>
 
     /* =====================================================
-       IMPORTAR FONT
+       IMPORTAR FONT AKT
     ===================================================== */
 
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
 
     /* =====================================================
        FONT GLOBAL
     ===================================================== */
 
     html, body, [class*="css"]  {
-        font-family: 'Manrope', sans-serif;
+        font-family: 'Akt', sans-serif;
     }
 
     /* =====================================================
@@ -58,34 +58,51 @@ st.markdown(
     ===================================================== */
 
     h1, h2, h3 {
-        font-family: 'Manrope', sans-serif !important;
+        font-family: 'Akt', sans-serif !important;
         font-weight: 700 !important;
     }
 
     /* =====================================================
-       TABLAS
+       TABLA CUSTOM
     ===================================================== */
 
-    table {
-        font-family: 'Manrope', sans-serif !important;
-        font-size: 15px !important;
-        border-collapse: collapse !important;
-        width: 100% !important;
+    .tabla-cea {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: 'Akt', sans-serif !important;
+        font-size: 15px;
+        border-radius: 10px;
+        overflow: hidden;
     }
 
-    thead tr th {
-        font-family: 'Manrope', sans-serif !important;
+    .tabla-cea thead th {
+
+        background-color: #f2f2f2;
+        color: #111111;
+
+        font-family: 'Akt', sans-serif !important;
         font-weight: 700 !important;
-        background-color: #f2f2f2 !important;
-        padding: 10px !important;
-        text-align: center !important;
+
+        padding: 12px;
+        text-align: center;
+
+        border-bottom: 1px solid #dddddd;
     }
 
-    tbody tr td {
-        font-family: 'Manrope', sans-serif !important;
-        padding: 10px !important;
-        text-align: center !important;
-        border-bottom: 1px solid #e6e6e6 !important;
+    .tabla-cea tbody td {
+
+        font-family: 'Akt', sans-serif !important;
+        font-weight: 500 !important;
+
+        padding: 12px;
+        text-align: center;
+
+        border-bottom: 1px solid #eeeeee;
+    }
+
+    .tabla-cea tbody tr:hover {
+
+        background-color: #fafafa;
     }
 
     </style>
@@ -326,7 +343,7 @@ if archivo is not None:
 
         col4.metric(
             "Volumen total",
-            f"{volumen_total:.1f} m³"
+            f"{volumen_total:.2f} m³"
         )
 
         if nmf is not None:
@@ -361,11 +378,11 @@ if archivo is not None:
                 ],
 
                 "Valor": [
-                    round(p1_promedio, 2),
-                    round(p2_promedio, 2),
-                    round(q_promedio, 2),
-                    round(volumen_total, 2),
-                    round(nmf, 2) if nmf is not None else "-"
+                    f"{p1_promedio:.2f}",
+                    f"{p2_promedio:.2f}",
+                    f"{q_promedio:.2f}",
+                    f"{volumen_total:.2f}",
+                    f"{nmf:.2f}" if nmf is not None else "-"
                 ],
 
                 "Unidad": [
@@ -377,7 +394,15 @@ if archivo is not None:
                 ]
             })
 
-            st.table(resultado)
+            tabla_html = resultado.to_html(
+                index=False,
+                classes="tabla-cea"
+            )
+
+            st.markdown(
+                tabla_html,
+                unsafe_allow_html=True
+            )
 
             if hora_nmf is not None:
 
@@ -469,7 +494,7 @@ if archivo is not None:
             y_max = q["Valor"].max() * 1.1
 
             # =====================================================
-            # LAYOUT
+            # LAYOUT FIGURA
             # =====================================================
 
             fig.update_layout(
