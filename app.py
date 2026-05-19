@@ -43,7 +43,7 @@ with col_logo:
 
     st.image(
         "logo.png",
-        width=170
+        width=110
     )
 
 with col_titulo:
