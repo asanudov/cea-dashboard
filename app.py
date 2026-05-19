@@ -30,7 +30,7 @@ st.markdown(
     ===================================================== */
 
     html, body, [class*="css"]  {
-        font-family: 'Akt', sans-serif;
+        font-family: 'Akt', sans-serif !important;
     }
 
     /* =====================================================
@@ -43,17 +43,6 @@ st.markdown(
     }
 
     /* =====================================================
-       KPIs
-    ===================================================== */
-
-    div[data-testid="stMetric"]{
-        background-color: #f8f9fa;
-        padding: 10px;
-        border-radius: 10px;
-        border: 1px solid #e6e6e6;
-    }
-
-    /* =====================================================
        TITULOS
     ===================================================== */
 
@@ -63,27 +52,88 @@ st.markdown(
     }
 
     /* =====================================================
+       BOTONES
+    ===================================================== */
+
+    .stButton > button {
+
+        font-family: 'Akt', sans-serif !important;
+        font-weight: 600 !important;
+
+        border-radius: 10px !important;
+
+        height: 48px !important;
+
+        font-size: 16px !important;
+    }
+
+    /* =====================================================
+       FILE UPLOADER
+    ===================================================== */
+
+    section[data-testid="stFileUploader"] {
+
+        font-family: 'Akt', sans-serif !important;
+    }
+
+    section[data-testid="stFileUploader"] * {
+
+        font-family: 'Akt', sans-serif !important;
+    }
+
+    /* =====================================================
+       KPIs
+    ===================================================== */
+
+    div[data-testid="stMetric"]{
+
+        background-color: #f8f9fa;
+
+        padding: 10px;
+
+        border-radius: 10px;
+
+        border: 1px solid #e6e6e6;
+
+        font-family: 'Akt', sans-serif !important;
+    }
+
+    div[data-testid="stMetric"] * {
+
+        font-family: 'Akt', sans-serif !important;
+    }
+
+    /* =====================================================
        TABLA CUSTOM
     ===================================================== */
 
     .tabla-cea {
+
         width: 100%;
+
         border-collapse: collapse;
+
         font-family: 'Akt', sans-serif !important;
+
         font-size: 15px;
+
         border-radius: 10px;
+
         overflow: hidden;
     }
 
     .tabla-cea thead th {
 
         background-color: #f2f2f2;
+
         color: #111111;
 
         font-family: 'Akt', sans-serif !important;
+
         font-weight: 700 !important;
 
         padding: 12px;
+
         text-align: center;
 
         border-bottom: 1px solid #dddddd;
@@ -92,9 +142,11 @@ st.markdown(
     .tabla-cea tbody td {
 
         font-family: 'Akt', sans-serif !important;
+
         font-weight: 500 !important;
 
         padding: 12px;
+
         text-align: center;
 
         border-bottom: 1px solid #eeeeee;
@@ -103,6 +155,20 @@ st.markdown(
     .tabla-cea tbody tr:hover {
 
         background-color: #fafafa;
+    }
+
+    /* =====================================================
+       MENSAJE MNF
+    ===================================================== */
+
+    div[data-testid="stAlert"] {
+
+        font-family: 'Akt', sans-serif !important;
+    }
+
+    div[data-testid="stAlert"] * {
+
+        font-family: 'Akt', sans-serif !important;
     }
 
     </style>
