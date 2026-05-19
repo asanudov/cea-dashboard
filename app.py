@@ -3,33 +3,44 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # =====================================================
-# CONFIGURACIÓN GENERAL
+# CONFIGURACIÓN
 # =====================================================
 
 st.set_page_config(
-    page_title="CEA Dashboard",
+    page_title="Dashboard Gestión de Presiones",
     layout="wide"
 )
 
 # =====================================================
-# TÍTULO
+# ESTILO COMPACTO
 # =====================================================
 
-st.title("📊 CEA Datalogger Dashboard")
+st.markdown("""
+<style>
 
-st.write(
-    """
-    Dashboard hidráulico para análisis de:
-    
-    • Presiones promedio  
-    • Caudal promedio  
-    • Volumen acumulado  
-    • MNF / Minimum Night Flow (IWA)
-    """
-)
+.block-container{
+    padding-top: 1rem;
+    padding-bottom: 0rem;
+}
+
+div[data-testid="stMetric"]{
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #e6e6e6;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # =====================================================
-# CARGAR ARCHIVO
+# HEADER
+# =====================================================
+
+st.title("📊 Dashboard para Datos de Gestión de Presiones")
+
+# =====================================================
+# CARGA ARCHIVO
 # =====================================================
 
 archivo = st.file_uploader(
@@ -38,15 +49,29 @@ archivo = st.file_uploader(
 )
 
 # =====================================================
-# MENSAJE INICIAL
+# DESCRIPCIÓN SOLO SI NO HAY ARCHIVO
 # =====================================================
 
 if archivo is None:
 
-    st.info("⬆️ Primero carga un archivo Excel.")
+    st.markdown("""
+    ### Calcula automáticamente:
+    
+    - Presión aguas arriba promedio (bar)
+    - Presión aguas abajo promedio (bar)
+    - Caudal promedio (lps)
+    - Volumen total (m³)
+    - MNF (Minimum Night Flow)
+    
+    ---
+    
+    **Desarrollado por M.I. Alan Sañudo**
+    """)
+
+    st.info("⬆️ Carga un archivo para comenzar.")
 
 # =====================================================
-# EJECUTAR
+# PROCESAMIENTO
 # =====================================================
 
 if archivo is not None:
@@ -68,7 +93,7 @@ if archivo is not None:
         df.columns = df.columns.str.strip()
 
         # =====================================================
-        # RENOMBRAR COLUMNAS
+        # RENOMBRAR
         # =====================================================
 
         df = df.rename(columns={
@@ -78,7 +103,7 @@ if archivo is not None:
         })
 
         # =====================================================
-        # FECHAS
+        # FECHA
         # =====================================================
 
         df["FechaHora"] = pd.to_datetime(
@@ -87,7 +112,7 @@ if archivo is not None:
         )
 
         # =====================================================
-        # CONVERTIR A NUMÉRICO
+        # NUMÉRICOS
         # =====================================================
 
         df["Valor"] = (
@@ -98,13 +123,13 @@ if archivo is not None:
         )
 
         # =====================================================
-        # ORDENAR
+        # ORDEN
         # =====================================================
 
         df = df.sort_values("FechaHora")
 
         # =====================================================
-        # FILTRAR VARIABLES
+        # FILTROS
         # =====================================================
 
         p1 = df[df["Variable"] == "P1"].copy()
@@ -142,13 +167,7 @@ if archivo is not None:
         volumen_total = q["Volumen_m3"].sum()
 
         # =====================================================
-        # MNF / MINIMUM NIGHT FLOW
-        # =====================================================
-        # Método:
-        # promedio móvil mínimo de 60 minutos
-        #
-        # Ventana:
-        # 02:00 - 04:00
+        # MNF
         # =====================================================
 
         q["Hora"] = q["FechaHora"].dt.hour
@@ -162,10 +181,6 @@ if archivo is not None:
 
             q_noche = q_noche.sort_values("FechaHora")
 
-            # =====================================================
-            # INTERVALO DE MUESTREO
-            # =====================================================
-
             intervalo_min = (
                 q_noche["FechaHora"]
                 .diff()
@@ -178,10 +193,6 @@ if archivo is not None:
                 int(60 / intervalo_min)
             )
 
-            # =====================================================
-            # PROMEDIO MÓVIL
-            # =====================================================
-
             q_noche["Rolling_MNF"] = (
                 q_noche["Valor"]
                 .rolling(
@@ -190,10 +201,6 @@ if archivo is not None:
                 )
                 .mean()
             )
-
-            # =====================================================
-            # OBTENER MNF
-            # =====================================================
 
             idx_nmf = q_noche["Rolling_MNF"].idxmin()
 
@@ -207,7 +214,7 @@ if archivo is not None:
             hora_nmf = None
 
         # =====================================================
-        # KPI VISUALES
+        # KPIs
         # =====================================================
 
         st.divider()
@@ -215,12 +222,12 @@ if archivo is not None:
         col1, col2, col3, col4, col5 = st.columns(5)
 
         col1.metric(
-            "P1 promedio",
+            "P. aguas arriba",
             f"{p1_promedio:.2f} bar"
         )
 
         col2.metric(
-            "P2 promedio",
+            "P. aguas abajo",
             f"{p2_promedio:.2f} bar"
         )
 
@@ -230,7 +237,7 @@ if archivo is not None:
         )
 
         col4.metric(
-            "Volumen",
+            "Volumen total",
             f"{volumen_total:.1f} m³"
         )
 
@@ -242,13 +249,13 @@ if archivo is not None:
             )
 
         # =====================================================
-        # LAYOUT PRINCIPAL
+        # LAYOUT
         # =====================================================
 
-        col_izq, col_der = st.columns([1, 2.2])
+        col_izq, col_der = st.columns([1, 2.3])
 
         # =====================================================
-        # COLUMNA IZQUIERDA
+        # IZQUIERDA
         # =====================================================
 
         with col_izq:
@@ -258,11 +265,11 @@ if archivo is not None:
             resultado = pd.DataFrame({
 
                 "Indicador": [
-                    "P1 promedio",
-                    "P2 promedio",
+                    "P. aguas arriba",
+                    "P. aguas abajo",
                     "Q promedio",
-                    "Volumen acumulado",
-                    "MNF (IWA)"
+                    "Volumen total",
+                    "MNF"
                 ],
 
                 "Valor": [
@@ -285,7 +292,7 @@ if archivo is not None:
             st.dataframe(
                 resultado,
                 use_container_width=True,
-                height=250
+                height=230
             )
 
             if hora_nmf is not None:
@@ -303,7 +310,7 @@ if archivo is not None:
                 )
 
         # =====================================================
-        # COLUMNA DERECHA
+        # DERECHA
         # =====================================================
 
         with col_der:
@@ -313,7 +320,7 @@ if archivo is not None:
             fig = go.Figure()
 
             # =====================================================
-            # LÍNEA CAUDAL
+            # CAUDAL
             # =====================================================
 
             fig.add_trace(
@@ -341,25 +348,25 @@ if archivo is not None:
                 )
 
             # =====================================================
-            # LÍMITES EJE Y
+            # LIMITES Y
             # =====================================================
 
             y_min = q["Valor"].min() * 0.9
             y_max = q["Valor"].max() * 1.1
 
             # =====================================================
-            # CONFIGURACIÓN GRÁFICA
+            # LAYOUT GRÁFICA
             # =====================================================
 
             fig.update_layout(
 
-                height=500,
+                height=470,
 
                 margin=dict(
-                    l=20,
-                    r=20,
+                    l=10,
+                    r=10,
                     t=40,
-                    b=20
+                    b=10
                 ),
 
                 xaxis_title="Fecha y hora",
@@ -371,10 +378,6 @@ if archivo is not None:
                     rangeslider=dict(visible=True),
                     fixedrange=False
                 ),
-
-                # =====================================================
-                # BLOQUEAR ZOOM VERTICAL
-                # =====================================================
 
                 yaxis=dict(
                     fixedrange=True,
@@ -396,16 +399,14 @@ if archivo is not None:
             )
 
         # =====================================================
-        # DESCARGAR CSV
+        # DESCARGA
         # =====================================================
-
-        st.divider()
 
         csv = resultado.to_csv(index=False).encode("utf-8")
 
         st.download_button(
             label="📥 Descargar resumen",
             data=csv,
-            file_name="Resumen_Datalogger.csv",
+            file_name="Resumen_Dashboard_CEA.csv",
             mime="text/csv"
         )
