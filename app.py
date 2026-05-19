@@ -34,13 +34,37 @@ div[data-testid="stMetric"]{
 """, unsafe_allow_html=True)
 
 # =====================================================
-# HEADER
+# HEADER CON LOGO
 # =====================================================
 
-st.title("📊 Dashboard para Datos de Gestión de Presiones")
+col_logo, col_titulo = st.columns([1,4])
+
+with col_logo:
+
+    st.image(
+        "logo.png",
+        width=170
+    )
+
+with col_titulo:
+
+    st.markdown(
+        """
+        <h1 style='padding-top:25px;'>
+        Dashboard para Datos de Gestión de Presiones
+        </h1>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        ### Desarrollado por M.I. Alan Sañudo
+        """
+    )
 
 # =====================================================
-# CARGA ARCHIVO
+# CARGAR ARCHIVO
 # =====================================================
 
 archivo = st.file_uploader(
@@ -62,10 +86,6 @@ if archivo is None:
     - Caudal promedio (lps)
     - Volumen total (m³)
     - MNF (Minimum Night Flow)
-    
-    ---
-    
-    **Desarrollado por M.I. Alan Sañudo**
     """)
 
     st.info("⬆️ Carga un archivo para comenzar.")
@@ -348,14 +368,14 @@ if archivo is not None:
                 )
 
             # =====================================================
-            # LIMITES Y
+            # LÍMITES EJE Y
             # =====================================================
 
             y_min = q["Valor"].min() * 0.9
             y_max = q["Valor"].max() * 1.1
 
             # =====================================================
-            # LAYOUT GRÁFICA
+            # CONFIGURACIÓN GRÁFICA
             # =====================================================
 
             fig.update_layout(
