@@ -15,23 +15,57 @@ st.set_page_config(
 # ESTILO COMPACTO
 # =====================================================
 
-st.markdown("""
-<style>
+st.markdown(
+    """
+    <style>
 
-.block-container{
-    padding-top: 1rem;
-    padding-bottom: 0rem;
-}
+    /* =====================================================
+       IMPORTAR FONT AKT
+    ===================================================== */
 
-div[data-testid="stMetric"]{
-    background-color: #f8f9fa;
-    padding: 10px;
-    border-radius: 10px;
-    border: 1px solid #e6e6e6;
-}
+    @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
 
-</style>
-""", unsafe_allow_html=True)
+    /* =====================================================
+       APLICAR FONT GLOBAL
+    ===================================================== */
+
+    html, body, [class*="css"]  {
+        font-family: 'Akt', sans-serif;
+    }
+
+    /* =====================================================
+       COMPACTAR DASHBOARD
+    ===================================================== */
+
+    .block-container{
+        padding-top: 1rem;
+        padding-bottom: 0rem;
+    }
+
+    /* =====================================================
+       KPIs
+    ===================================================== */
+
+    div[data-testid="stMetric"]{
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid #e6e6e6;
+    }
+
+    /* =====================================================
+       TITULOS
+    ===================================================== */
+
+    h1, h2, h3 {
+        font-family: 'Akt', sans-serif !important;
+        font-weight: 700 !important;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # =====================================================
 # HEADER CON LOGO
