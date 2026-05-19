@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILO
+# ESTILOS
 # =====================================================
 
 st.markdown(
@@ -20,21 +20,21 @@ st.markdown(
     <style>
 
     /* =====================================================
-       IMPORTAR FONT AKT
+       IMPORTAR FONT
     ===================================================== */
 
-    @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
 
     /* =====================================================
        FONT GLOBAL
     ===================================================== */
 
     html, body, [class*="css"]  {
-        font-family: 'Akt', sans-serif;
+        font-family: 'Manrope', sans-serif;
     }
 
     /* =====================================================
-       COMPACTAR
+       COMPACTAR DASHBOARD
     ===================================================== */
 
     .block-container{
@@ -58,8 +58,34 @@ st.markdown(
     ===================================================== */
 
     h1, h2, h3 {
-        font-family: 'Akt', sans-serif !important;
+        font-family: 'Manrope', sans-serif !important;
         font-weight: 700 !important;
+    }
+
+    /* =====================================================
+       TABLAS
+    ===================================================== */
+
+    table {
+        font-family: 'Manrope', sans-serif !important;
+        font-size: 15px !important;
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+
+    thead tr th {
+        font-family: 'Manrope', sans-serif !important;
+        font-weight: 700 !important;
+        background-color: #f2f2f2 !important;
+        padding: 10px !important;
+        text-align: center !important;
+    }
+
+    tbody tr td {
+        font-family: 'Manrope', sans-serif !important;
+        padding: 10px !important;
+        text-align: center !important;
+        border-bottom: 1px solid #e6e6e6 !important;
     }
 
     </style>
@@ -115,7 +141,7 @@ archivo = st.file_uploader(
 )
 
 # =====================================================
-# DESCRIPCIÓN
+# MENSAJE INICIAL
 # =====================================================
 
 if archivo is None:
@@ -351,11 +377,7 @@ if archivo is not None:
                 ]
             })
 
-            st.dataframe(
-                resultado,
-                use_container_width=True,
-                height=230
-            )
+            st.table(resultado)
 
             if hora_nmf is not None:
 
@@ -440,14 +462,14 @@ if archivo is not None:
                 )
 
             # =====================================================
-            # LÍMITES EJE Y
+            # LIMITES Y
             # =====================================================
 
             y_min = q["Valor"].min() * 0.9
             y_max = q["Valor"].max() * 1.1
 
             # =====================================================
-            # LAYOUT FIGURA
+            # LAYOUT
             # =====================================================
 
             fig.update_layout(
