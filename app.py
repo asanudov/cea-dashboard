@@ -51,7 +51,7 @@ st.markdown(
         padding-bottom: 0rem;
     }
 
-    h1, h2, h3 {
+    h2, h5 {
         font-family: 'Akt', sans-serif !important;
         font-weight: 700 !important;
         margin-bottom: 5px !important;
@@ -76,23 +76,36 @@ st.markdown(
         width: 100%;
     }
 
-    /* Estilo para ajustar las métricas e igualar el tamaño */
+    /* Estilo para ajustar las métricas e incrementar los textos */
     div[data-testid="stMetric"] {
         background-color: #f8f9fa;
-        padding: 8px 12px;
+        padding: 10px 14px;
         border-radius: 10px;
         border: 1px solid #e6e6e6;
         font-family: 'Akt', sans-serif !important;
-        min-height: 90px;
+        min-height: 95px;
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
+
+    /* Texto de las etiquetas de las métricas (P1, P2, etc) */
+    div[data-testid="stMetricLabel"] p {
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        color: #555555 !important;
+    }
     
-    /* Ajustar el tamaño de fuente dentro de la métrica de rango de fechas para que no se desborde */
+    /* Texto de los valores numéricos principales */
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        font-size: calc(14px + 0.3vw) !important;
+        font-size: 25px !important;
+        font-weight: 700 !important;
         line-height: 1.2 !important;
+    }
+    
+    /* Ajuste específico para el rango de fechas */
+    div[data-testid="stMetric"]:has(div[data-testid="stMetricLabel"]:contains("Periodo Analizado")) div[data-testid="stMetricValue"] {
+        font-size: 17px !important;
     }
 
     .tabla-cea {
@@ -100,6 +113,7 @@ st.markdown(
         border-collapse: collapse;
         font-family: 'Akt', sans-serif !important;
         font-size: 14px;
+        margin-top: 15px;
     }
 
     .tabla-cea th {
@@ -118,19 +132,21 @@ st.markdown(
 )
 
 # =====================================================
-# HEADER Y FILA SUPERIOR INTEGRADA (DISTRIBUCIÓN SEGÚN FOTO)
+# LAYOUT MAESTRO DE DOS GRANDES COLUMNAS (DE ARRIBA A ABAJO)
 # =====================================================
-# Dividimos la pantalla en dos grandes secciones horizontales para colocar los KPI arriba a la derecha
-col_izquierda, col_derecha = st.columns([2.5, 3.5])
+col_maestra_izq, col_maestra_der = st.columns([2.5, 3.5], gap="large")
 
-with col_izquierda:
-    # Logo y Títulos
+# -----------------------------------------------------
+# COLUMNA IZQUIERDA: CONFIGURACIÓN, REQUISITOS Y TABLA
+# -----------------------------------------------------
+with col_maestra_izq:
+    # Header: Logo y Títulos
     col_logo, col_titulo = st.columns([1, 4])
     with col_logo:
         st.markdown("<div style='padding-top: 15px;'></div>", unsafe_allow_html=True)
-        st.image("logo.png", width=110)
+        st.image("logo.png", width=105)
     with col_titulo:
-        st.markdown("<h2 style='margin:0; font-size:26px;'>Dashboard para Datos de Gestión de Presiones</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='margin:0; font-size:25px;'>Dashboard para Datos de Gestión de Presiones</h2>", unsafe_allow_html=True)
         st.markdown("<h5 style='color:#666; margin:0 0 10px 0;'>Desarrollado por M.I. Alan Sañudo</h5>", unsafe_allow_html=True)
     
     # Viñetas informativas
@@ -150,7 +166,7 @@ with col_izquierda:
     
     st.markdown("<div style='padding-top: 10px;'></div>", unsafe_allow_html=True)
     
-    # Selector de archivo y botón integrados abajo de las notas
+    # Controles de Carga
     col_file, col_btn = st.columns([1.6, 1.1])
     with col_file:
         archivo = st.file_uploader("Subir archivo Excel", type=["xlsx"])
@@ -161,81 +177,109 @@ with col_izquierda:
         else:
             st.button("▶ Ejecutar cálculo", disabled=True)
 
-# Contenedor previo para los cálculos
-if archivo is None:
-    with col_derecha:
-        st.info("Carga un archivo Excel para visualizar los indicadores en este espacio.")
-else:
-    # Ocultamos la lectura dentro de un estado cacheado o directo para procesar antes de dibujar la columna derecha
-    df = pd.read_excel(archivo)
-    df.columns = df.columns.str.strip()
-    df = df.rename(columns={"Data Logger": "Variable", "Fecha y hora": "FechaHora", "Media": "Valor"})
-    df["FechaHora"] = pd.to_datetime(df["FechaHora"], dayfirst=True)
-    df["Valor"] = df["Valor"].astype(str).str.replace(",", ".", regex=False).astype(float)
+    # Inicialización de variables para control de flujo
+    procesado = False
 
-    df["Tipo"] = df["Variable"].apply(clasificar_variable)
-    df = df[df["Tipo"].notnull()].copy()
-    df = df.sort_values("FechaHora")
+    # Si hay archivo cargado, realizamos los cálculos de fondo inmediatamente
+    if archivo is not None:
+        df = pd.read_excel(archivo)
+        df.columns = df.columns.str.strip()
+        df = df.rename(columns={"Data Logger": "Variable", "Fecha y hora": "FechaHora", "Media": "Valor"})
+        df["FechaHora"] = pd.to_datetime(df["FechaHora"], dayfirst=True)
+        df["Valor"] = df["Valor"].astype(str).str.replace(",", ".", regex=False).astype(float)
 
-    p1 = df[df["Tipo"] == "P1"].copy()
-    p2 = df[df["Tipo"] == "P2"].copy()
-    q = df[df["Tipo"] == "Q"].copy()
+        df["Tipo"] = df["Variable"].apply(clasificar_variable)
+        df = df[df["Tipo"].notnull()].copy()
+        df = df.sort_values("FechaHora")
 
-    p1_prom = p1["Valor"].mean() if not p1.empty else 0.0
-    p2_prom = p2["Valor"].mean() if not p2.empty else 0.0
+        p1 = df[df["Tipo"] == "P1"].copy()
+        p2 = df[df["Tipo"] == "P2"].copy()
+        q = df[df["Tipo"] == "Q"].copy()
 
-    q["Hora"] = q["FechaHora"].dt.hour
-    q["is_zero"] = q["Valor"] == 0
-    es_tandeo = q["is_zero"].mean() > 0.4 if not q.empty else False
+        p1_prom = p1["Valor"].mean() if not p1.empty else 0.0
+        p2_prom = p2["Valor"].mean() if not p2.empty else 0.0
 
-    if es_tandeo:
-        q_prom = q["Valor"].mean() if not q.empty else 0.0
-    else:
-        q_clean = q[q["Valor"] > 0].copy()
-        if not q_clean.empty:
-            Q1 = q_clean["Valor"].quantile(0.25)
-            Q3 = q_clean["Valor"].quantile(0.75)
-            IQR = Q3 - Q1
-            q_clean = q_clean[q_clean["Valor"] <= (Q3 + 1.5 * IQR)]
-        q_prom = q_clean["Valor"].mean() if not q_clean.empty else 0.0
+        q["Hora"] = q["FechaHora"].dt.hour
+        q["is_zero"] = q["Valor"] == 0
+        es_tandeo = q["is_zero"].mean() > 0.4 if not q.empty else False
 
-    q["Delta_t"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
-    q["Volumen"] = (q["Valor"] * q["Delta_t"]) / 1000
-    volumen = q["Volumen"].sum()
-
-    # MNF
-    if es_tandeo:
-        nmf = None
-    else:
-        q_mnf = q.copy()
-        q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
-        q_mnf.loc[q_mnf["Valor_mnf"] == 0, "Valor_mnf"] = pd.NA
-        q_mnf["is_zero"] = q_mnf["Valor_mnf"].isna()
-        q_mnf["block"] = (q_mnf["is_zero"] != q_mnf["is_zero"].shift()).cumsum()
-        block_sizes = q_mnf.groupby("block")["is_zero"].transform("size")
-        q_mnf = q_mnf[~((q_mnf["is_zero"]) & (block_sizes > 3))].copy()
-        q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(limit=2).ffill().bfill()
-        q_noche = q_mnf[(q_mnf["Hora"] >= 2) & (q_mnf["Hora"] < 4)].copy()
-
-        if not q_noche.empty:
-            q_noche = q_noche.sort_values("FechaHora")
-            intervalo = q_noche["FechaHora"].diff().dt.total_seconds().median() / 60
-            ventana = max(1, int(60 / intervalo))
-            q_noche["MNF"] = q_noche["Valor_mnf"].rolling(ventana, min_periods=1).mean()
-            nmf = q_noche.loc[q_noche["MNF"].idxmin(), "MNF"]
+        if es_tandeo:
+            q_prom = q["Valor"].mean() if not q.empty else 0.0
         else:
+            q_clean = q[q["Valor"] > 0].copy()
+            if not q_clean.empty:
+                Q1 = q_clean["Valor"].quantile(0.25)
+                Q3 = q_clean["Valor"].quantile(0.75)
+                IQR = Q3 - Q1
+                q_clean = q_clean[q_clean["Valor"] <= (Q3 + 1.5 * IQR)]
+            q_prom = q_clean["Valor"].mean() if not q_clean.empty else 0.0
+
+        q["Delta_t"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
+        q["Volumen"] = (q["Valor"] * q["Delta_t"]) / 1000
+        volumen = q["Volumen"].sum()
+
+        if es_tandeo:
             nmf = None
+        else:
+            q_mnf = q.copy()
+            q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
+            q_mnf.loc[q_mnf["Valor_mnf"] == 0, "Valor_mnf"] = pd.NA
+            q_mnf["is_zero"] = q_mnf["Valor_mnf"].isna()
+            q_mnf["block"] = (q_mnf["is_zero"] != q_mnf["is_zero"].shift()).cumsum()
+            block_sizes = q_mnf.groupby("block")["is_zero"].transform("size")
+            q_mnf = q_mnf[~((q_mnf["is_zero"]) & (block_sizes > 3))].copy()
+            q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(limit=2).ffill().bfill()
+            q_noche = q_mnf[(q_mnf["Hora"] >= 2) & (q_mnf["Hora"] < 4)].copy()
 
-    # Obtener fechas del periodo analizado
-    fecha_inicio = df["FechaHora"].min().strftime("%d/%b/%y")
-    fecha_fin = df["FechaHora"].max().strftime("%d/%b/%y")
+            if not q_noche.empty:
+                q_noche = q_noche.sort_values("FechaHora")
+                intervalo = q_noche["FechaHora"].diff().dt.total_seconds().median() / 60
+                ventana = max(1, int(60 / intervalo))
+                q_noche["MNF"] = q_noche["Valor_mnf"].rolling(ventana, min_periods=1).mean()
+                nmf = q_noche.loc[q_noche["MNF"].idxmin(), "MNF"]
+            else:
+                nmf = None
 
-    # =====================================================
-    # SECCIÓN DERECHA: SE DIBUJAN LAS MÉTRICAS EN RECUADROS (6 EN TOTAL)
-    # =====================================================
-    with col_derecha:
+        fecha_inicio = df["FechaHora"].min().strftime("%d/%b/%y")
+        fecha_fin = df["FechaHora"].max().strftime("%d/%b/%y")
+        procesado = True
+
+    # Renderizado de Tabla y botón de descarga en la columna izquierda si se presionó ejecutar
+    if archivo is None:
+        st.info("Carga un archivo para comenzar.")
+    elif 'ejecutar' in locals() and ejecutar and procesado:
+        tabla = pd.DataFrame({
+            "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
+            "Valor": [
+                f"{p1_prom:.2f}",
+                f"{p2_prom:.2f}",
+                f"{q_prom:.2f}",
+                f"{volumen:.2f}",
+                f"{nmf:.2f}" if nmf is not None else "-"
+            ],
+            "Unidad": ["bar", "bar", "lps", "m³", "lps"]
+        })
+
+        st.markdown(tabla.to_html(index=False, classes="tabla-cea"), unsafe_allow_html=True)
         st.markdown("<div style='padding-top: 15px;'></div>", unsafe_allow_html=True)
-        # Fila 1 de Métricas
+        
+        st.download_button(
+            "Descargar Reporte CSV",
+            tabla.to_csv(index=False).encode("utf-8"),
+            "resumen.csv",
+            "text/csv"
+        )
+        if es_tandeo:
+            st.warning("Nota: Tandeo detectado en la red.")
+
+# -----------------------------------------------------
+# COLUMNA DERECHA: KPIs SUPERIORES Y GRÁFICO INMEDIATO
+# -----------------------------------------------------
+with col_maestra_der:
+    if not procesado:
+        st.info("Espacio reservado para indicadores y gráfico evolutivo.")
+    else:
+        # Fila 1 de Métricas (Alineación superior limpia)
         c1, c2, c3 = st.columns(3)
         c1.metric("P1 Promedio", f"{p1_prom:.2f} bar")
         c2.metric("P2 Promedio", f"{p2_prom:.2f} bar")
@@ -249,49 +293,16 @@ else:
         c5.metric("MNF", f"{nmf:.2f} lps" if nmf is not None else "-")
         c6.metric("Periodo Analizado", f"{fecha_inicio} al {fecha_fin}")
 
-    # Separador sutil antes de los gráficos
-    st.markdown("<hr style='margin:20px 0; border:0; border-top:1px solid #eee;'>", unsafe_allow_html=True)
-
-    # =====================================================
-    # CUERPO PRINCIPAL: TABLA VS GRÁFICO
-    # =====================================================
-    if ejecutar:
-        col_tabla, col_grafico = st.columns([1, 2.3])
-
-        with col_tabla:
-            tabla = pd.DataFrame({
-                "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
-                "Valor": [
-                    f"{p1_prom:.2f}",
-                    f"{p2_prom:.2f}",
-                    f"{q_prom:.2f}",
-                    f"{volumen:.2f}",
-                    f"{nmf:.2f}" if nmf is not None else "-"
-                ],
-                "Unidad": ["bar", "bar", "lps", "m³", "lps"]
-            })
-
-            st.markdown(tabla.to_html(index=False, classes="tabla-cea"), unsafe_allow_html=True)
-            
+        # Si se ejecuta el cálculo, el gráfico se dibuja directamente abajo de los KPIs
+        if 'ejecutar' in locals() and ejecutar:
             st.markdown("<div style='padding-top: 15px;'></div>", unsafe_allow_html=True)
-            st.download_button(
-                "Descargar Reporte CSV",
-                tabla.to_csv(index=False).encode("utf-8"),
-                "resumen.csv",
-                "text/csv"
-            )
-            if es_tandeo:
-                st.warning("Nota: Tandeo detectado en la red.")
-
-        with col_grafico:
+            
             fig = go.Figure()
 
             # Serie Temporal Q
             fig.add_trace(go.Scatter(
-                x=q["FechaHora"],
-                y=q["Valor"],
-                mode="lines",
-                name="Q",
+                x=q["FechaHora"], y=q["Valor"],
+                mode="lines", name="Q",
                 line=dict(width=2, color="blue")
             ))
 
@@ -299,9 +310,8 @@ else:
             fig.add_trace(go.Scatter(
                 x=[q["FechaHora"].min(), q["FechaHora"].max()],
                 y=[q_prom, q_prom],
-                mode="lines",
-                name="Q promedio",
-                line=dict(width=2, color="red", dash="dot")
+                mode="lines", name="Q promedio",
+                line=dict(width=1.5, color="red", dash="dot")
             ))
 
             # Línea MNF si existe
@@ -309,25 +319,24 @@ else:
                 fig.add_trace(go.Scatter(
                     x=[q["FechaHora"].min(), q["FechaHora"].max()],
                     y=[nmf, nmf],
-                    mode="lines",
-                    name="MNF",
-                    line=dict(width=2, color="green", dash="dash")
+                    mode="lines", name="MNF",
+                    line=dict(width=1.5, color="green", dash="dash")
                 ))
 
-            # Ajustes de Plotly: RangeSlider Activado + Leyenda compactada
+            # Ajuste de layout de Plotly: pegado arriba eliminando márgenes muertos
             fig.update_layout(
-                height=400, 
-                margin=dict(t=10, b=10, l=10, r=10), 
+                height=380, 
+                margin=dict(t=10, b=5, l=10, r=10),
                 hovermode="x unified",
                 xaxis=dict(
-                    rangeslider=dict(visible=True) # <-- REGRESADO EL RANGESLIDER SOLICITADO
+                    rangeslider=dict(visible=True) # Conserva el RangeSlider solicitado
                 ),
                 yaxis=dict(
                     range=[q["Valor"].min() * 0.9, q["Valor"].max() * 1.1]
                 ),
                 legend=dict(
                     orientation="h",
-                    y=1.05, 
+                    y=1.06, 
                     x=0.5,
                     xanchor="center"
                 )
