@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# NORMALIZACIÓN Y CLASIFICACIÓN
+# NORMALIZACIÓN
 # =====================================================
 
 def normalizar(texto):
@@ -42,7 +42,7 @@ def clasificar_variable(var):
     return None
 
 # =====================================================
-# ESTILOS (SIN CAMBIOS)
+# ESTILOS (TU DISEÑO ORIGINAL)
 # =====================================================
 
 st.markdown(
@@ -178,16 +178,14 @@ if archivo is not None:
         p2_promedio = p2["Valor"].mean()
 
         # =====================================================
-        # Q LIMPIO
+        # Q LIMPIO (SIN CEROS + OUTLIERS)
         # =====================================================
 
         q_clean = q.copy()
-        q_clean["Hora"] = q_clean["FechaHora"].dt.hour  # 🔥 FIX CRÍTICO
+        q_clean["Hora"] = q_clean["FechaHora"].dt.hour
 
-        # eliminar ceros
         q_clean = q_clean[q_clean["Valor"] > 0]
 
-        # eliminar outliers (IQR)
         if not q_clean.empty:
             Q1 = q_clean["Valor"].quantile(0.25)
             Q3 = q_clean["Valor"].quantile(0.75)
@@ -197,7 +195,7 @@ if archivo is not None:
         q_promedio = q_clean["Valor"].mean()
 
         # =====================================================
-        # VOLUMEN (SIN CAMBIOS)
+        # VOLUMEN
         # =====================================================
 
         q["Delta_t_s"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
@@ -212,7 +210,6 @@ if archivo is not None:
         q["is_zero"] = q["Valor"] == 0
 
         porcentaje_cero = q["is_zero"].mean()
-
         es_tandeo = porcentaje_cero > 0.4
 
         # =====================================================
@@ -220,7 +217,6 @@ if archivo is not None:
         # =====================================================
 
         if es_tandeo:
-
             nmf = None
             hora_nmf = None
             st.warning("⚠️ Tandeo detectado → MNF desactivado")
@@ -264,12 +260,49 @@ if archivo is not None:
             col5.metric("MNF", f"{nmf:.2f} lps")
 
         # =====================================================
-        # GRÁFICA (SIN CAMBIOS VISUALES)
+        # LAYOUT
         # =====================================================
 
         col_izq, col_der = st.columns([1, 2.3])
 
+        # =====================================================
+        # TABLA RESUMEN (RESTAURADA)
+        # =====================================================
+
+        with col_izq:
+
+            st.subheader("📋 Resumen")
+
+            resultado = pd.DataFrame({
+                "Indicador": [
+                    "P. aguas arriba",
+                    "P. aguas abajo",
+                    "Q promedio",
+                    "Volumen total",
+                    "MNF"
+                ],
+                "Valor": [
+                    f"{p1_promedio:.2f}",
+                    f"{p2_promedio:.2f}",
+                    f"{q_promedio:.2f}",
+                    f"{volumen_total:.2f}",
+                    f"{nmf:.2f}" if nmf is not None else "-"
+                ],
+                "Unidad": ["bar", "bar", "lps", "m³", "lps"]
+            })
+
+            st.markdown(
+                resultado.to_html(index=False, classes="tabla-cea"),
+                unsafe_allow_html=True
+            )
+
+        # =====================================================
+        # GRÁFICA
+        # =====================================================
+
         with col_der:
+
+            st.subheader("📉 Serie temporal de caudal")
 
             fig = go.Figure()
 
@@ -320,16 +353,7 @@ if archivo is not None:
 
         st.download_button(
             "📥 Descargar resumen",
-            pd.DataFrame({
-                "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
-                "Valor": [
-                    p1_promedio,
-                    p2_promedio,
-                    q_promedio,
-                    volumen_total,
-                    nmf if nmf is not None else "-"
-                ]
-            }).to_csv(index=False).encode("utf-8"),
+            resultado.to_csv(index=False).encode("utf-8"),
             "resumen.csv",
             "text/csv"
         )
