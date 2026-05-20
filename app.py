@@ -23,15 +23,15 @@ st.markdown(
 @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
 
 /* =========================
-   FONT GLOBAL
+   FONT GLOBAL (CORREGIDO PARA NO ROMPER ICONOS)
 ========================= */
 
-html, body, [class*="css"], div, span, p, h1, h2, h3 {
+html, body, [class*="css"], h1, h2, h3, .stMarkdown, .kpi-box {
     font-family: 'Akt', sans-serif !important;
 }
 
 /* =========================
-   SIDEBAR CLEAN (SIN TEXTO)
+   SIDEBAR CLEAN (SIN TEXTO DE CABECERA)
 ========================= */
 
 section[data-testid="stSidebar"] h2,
@@ -41,14 +41,10 @@ section[data-testid="stSidebar"] header {
 }
 
 /* =========================
-   OCULTAR ICONO HOVER SIDEBAR (keyboard_double)
+   OCULTAR ICONO HOVER SIDEBAR
 ========================= */
 
 [data-testid="collapsedControl"] {
-    display: none !important;
-}
-
-[data-testid="collapsedControl"] svg {
     display: none !important;
 }
 
@@ -66,11 +62,6 @@ section[data-testid="stFileUploaderDropzoneInstructions"] {
     display: none !important;
 }
 
-/* QUITA ICONO */
-section[data-testid="stFileUploader"] svg {
-    display: none !important;
-}
-
 /* QUITA TOOLTIP HOVER */
 div[role="tooltip"] {
     display: none !important;
@@ -80,7 +71,7 @@ div[role="tooltip"] {
    LAYOUT
 ========================= */
 
-.block-container{
+.block-container {
     padding-top: 1.2rem !important;
 }
 
@@ -160,6 +151,19 @@ def clasificar_variable(var):
 with st.sidebar:
 
     st.image("logo.png", width=160)
+    
+    # Texto descriptivo solicitado bajo el logo
+    st.markdown("""
+    Calcula automáticamente desde la hoja de excel de cualquier ConDor de SkyPlatform:
+    
+    - **Presión aguas arriba promedio** (bar)
+    - **Presión aguas abajo promedio** (bar)
+    - **Caudal promedio** (lps)
+    - **Volumen total** ($m^3$)
+    - **MNF** (Minimum Night Flow)
+    """)
+    
+    st.write("---") # Línea divisoria visual
 
     archivo = st.file_uploader(
         "Cargar archivo Excel",
@@ -242,10 +246,10 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
 
     q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].ffill().bfill()
 
-    q_noche = q_mnf[
+    q_noche = q_mnf(
         (q_mnf["FechaHora"].dt.hour >= 2) &
         (q_mnf["FechaHora"].dt.hour < 4)
-    ]
+    )
 
     nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
 
