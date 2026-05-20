@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# NORMALIZACIÓN VARIABLES
+# NORMALIZACIÓN
 # =====================================================
 
 def normalizar(texto):
@@ -42,7 +42,7 @@ def clasificar_variable(var):
     return None
 
 # =====================================================
-# ESTILOS (SIN CAMBIOS)
+# ESTILO (SIN CAMBIOS)
 # =====================================================
 
 st.markdown(
@@ -155,7 +155,7 @@ if archivo is not None:
         )
 
         # =====================================================
-        # CLASIFICAR
+        # CLASIFICAR VARIABLES
         # =====================================================
 
         df["Tipo"] = df["Variable"].apply(clasificar_variable)
@@ -208,7 +208,7 @@ if archivo is not None:
         volumen = q["Volumen"].sum()
 
         # =====================================================
-        # MNF (CORREGIDO: SIN BLOQUES DE CERO LARGOS)
+        # MNF (FIX DTYPE + CERO BLOQUES)
         # =====================================================
 
         if es_tandeo:
@@ -221,19 +221,26 @@ if archivo is not None:
             q_mnf = q.copy()
             q_mnf["Hora"] = q_mnf["FechaHora"].dt.hour
 
-            # eliminar bloques largos de cero (fallas o cortes)
-            q_mnf["is_zero"] = q_mnf["Valor"] == 0
+            # FORZAR NUMÉRICO (FIX ERROR interpolate)
+            q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
+
+            # ceros como NaN sin romper dtype
+            q_mnf.loc[q_mnf["Valor_mnf"] == 0, "Valor_mnf"] = pd.NA
+
+            # eliminar bloques largos de ceros
+            q_mnf["is_zero"] = q_mnf["Valor_mnf"].isna()
+
             q_mnf["block"] = (q_mnf["is_zero"] != q_mnf["is_zero"].shift()).cumsum()
 
             block_sizes = q_mnf.groupby("block")["is_zero"].transform("size")
 
             q_mnf = q_mnf[~((q_mnf["is_zero"]) & (block_sizes > 3))].copy()
 
-            # suavizado de ceros aislados
-            q_mnf["Valor_mnf"] = q_mnf["Valor"].replace(0, pd.NA)
+            # interpolación segura
             q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(limit=2)
             q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].ffill().bfill()
 
+            # ventana nocturna
             q_noche = q_mnf[(q_mnf["Hora"] >= 2) & (q_mnf["Hora"] < 4)].copy()
 
             if not q_noche.empty:
@@ -281,8 +288,6 @@ if archivo is not None:
 
         with col1:
 
-            st.subheader("Resumen")
-
             tabla = pd.DataFrame({
                 "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
                 "Valor": [
@@ -295,10 +300,8 @@ if archivo is not None:
                 "Unidad": ["bar", "bar", "lps", "m³", "lps"]
             })
 
-            st.markdown(
-                tabla.to_html(index=False, classes="tabla-cea"),
-                unsafe_allow_html=True
-            )
+            st.markdown(tabla.to_html(index=False, classes="tabla-cea"),
+                        unsafe_allow_html=True)
 
         # =====================================================
         # GRÁFICO
