@@ -29,16 +29,22 @@ def normalizar(texto):
 def clasificar_variable(var):
     v = normalizar(var)
 
+    # =========================
     # PRESIÓN 1
-    if "p1" in v or "presion 1" in v:
+    # =========================
+    if v in ["p1", "presion 1", "presion1", "p1 (bar)", "presion 1 (bar)"]:
         return "P1"
 
+    # =========================
     # PRESIÓN 2
-    if "p2" in v or "presion 2" in v:
+    # =========================
+    if v in ["p2", "presion 2", "presion2", "p2 (bar)", "presion 2 (bar)"]:
         return "P2"
 
+    # =========================
     # CAUDAL
-    if "q" == v or "caudal" in v:
+    # =========================
+    if v in ["q", "caudal", "q (lps)", "caudal (lps)"]:
         return "Q"
 
     return None
