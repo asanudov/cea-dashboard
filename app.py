@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS
+# ESTILOS (AKT FORZADO GLOBAL)
 # =====================================================
 
 st.markdown(
@@ -22,7 +22,7 @@ st.markdown(
 
     @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
 
-    html, body, [class*="css"] {
+    html, body, [class*="css"], div, span, p, h1, h2, h3 {
         font-family: 'Akt', sans-serif !important;
     }
 
@@ -31,13 +31,13 @@ st.markdown(
         padding-bottom: 0rem !important;
     }
 
-    /* KPI BOX */
+    /* KPI BOX UNIFORME */
     .kpi-box {
         background-color: #f8f9fa;
         border: 1px solid #e6e6e6;
         border-radius: 10px;
         padding: 10px;
-        height: 100%;
+        height: 95px;   /* 🔥 FIX: todos iguales */
         text-align: center;
         display: flex;
         flex-direction: column;
@@ -49,11 +49,13 @@ st.markdown(
         font-size: 14px;
         font-weight: 600;
         margin-bottom: 4px;
+        font-family: 'Akt', sans-serif !important;
     }
 
     .kpi-value {
         font-size: 18px;
         font-weight: 600;
+        font-family: 'Akt', sans-serif !important;
     }
 
     </style>
@@ -172,7 +174,7 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
     rango = f"{q['FechaHora'].min().strftime('%d/%m/%Y')} - {q['FechaHora'].max().strftime('%d/%m/%Y')}"
 
     # =====================================================
-    # KPIs UI
+    # KPIs UI (UNIFORMES)
     # =====================================================
 
     st.divider()
@@ -192,13 +194,13 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
 
     kpi(c1, "P1", f"{p1_prom:.2f} bar")
     kpi(c2, "P2", f"{p2_prom:.2f} bar")
-    kpi(c3, "Q prom", f"{q_prom:.2f} lps")
+    kpi(c3, "Q prom (lps)", f"{q_prom:.2f}")
     kpi(c4, "Volumen", f"{volumen:.2f} m³")
     kpi(c5, "MNF (lps)", f"{nmf:.2f}" if nmf else "-")
     kpi(c6, "Periodo", rango)
 
     # =====================================================
-    # TABLA (NO MODIFICADA)
+    # TABLA (SIN CAMBIOS)
     # =====================================================
 
     col1, col2 = st.columns([1, 2.3])
@@ -224,7 +226,7 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
         )
 
     # =====================================================
-    # GRÁFICO (MÁS ALTO + SLIDER MANTENIDO)
+    # GRÁFICO (SLIDER OK)
     # =====================================================
 
     with col2:
@@ -257,15 +259,12 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
             ))
 
         fig.update_layout(
-            height=550,  # 🔥 MÁS ALTO (ANTES 420)
+            height=550,
             hovermode="x unified",
-            xaxis=dict(
-                rangeslider=dict(visible=True),
-                type="date"
-            ),
+            xaxis=dict(rangeslider=dict(visible=True)),
             legend=dict(
                 orientation="h",
-                y=1.05,
+                y=1.08,
                 x=0.5,
                 xanchor="center"
             )
