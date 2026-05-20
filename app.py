@@ -27,8 +27,7 @@ st.markdown(
     }
 
     .block-container{
-        padding-top: 2.5rem !important;
-        padding-bottom: 0rem !important;
+        padding-top: 1.5rem !important;
     }
 
     .kpi-box {
@@ -53,7 +52,6 @@ st.markdown(
         font-weight: 600;
     }
 
-    /* OCULTAR TEXTO EXTRA DEL UPLOADER */
     section[data-testid="stFileUploaderDropzoneInstructions"] {
         display: none !important;
     }
@@ -83,49 +81,47 @@ def clasificar_variable(var):
 
     if "p1" in v or "presion 1" in v:
         return "P1"
-
     if "p2" in v or "presion 2" in v:
         return "P2"
-
     if "q" in v or "caudal" in v:
         return "Q"
-
     return None
 
 # =====================================================
-# HEADER
+# SIDEBAR
 # =====================================================
 
-col_logo, col_titulo = st.columns([0.8, 4.2])
+with st.sidebar:
 
-with col_logo:
-    st.image("logo.png", width=170)
+    st.image("logo.png", width=160)
 
-with col_titulo:
-    st.markdown("<h1>Dashboard para Datos de Gestión de Presiones</h1>", unsafe_allow_html=True)
+    st.markdown("## Dashboard hidráulico")
 
     st.markdown("""
-### Calcula automáticamente:
+Este dashboard permite:
 
-1. Presión aguas arriba promedio (bar)  
-2. Presión aguas abajo promedio (bar)  
-3. Caudal promedio (lps)  
-4. Volumen total (m³)  
-5. MNF (Minimum Night Flow)  
-
-**Desarrollado por M.I. Alan Sañudo**
+- Analizar presiones (P1 / P2)
+- Calcular caudal promedio
+- Estimar volumen total
+- Detectar MNF (Minimum Night Flow)
+- Identificar comportamiento de tandeo
 """)
 
+    archivo = st.file_uploader(
+        "Cargar archivo Excel",
+        type=["xlsx"]
+    )
+
 # =====================================================
-# UPLOAD
+# MAIN
 # =====================================================
 
-archivo = st.file_uploader("Cargar archivo", type=["xlsx"])
+st.title("Dashboard para Datos de Gestión de Presiones")
 
 if archivo is None:
-    st.info("Carga un archivo para comenzar.")
+    st.info("Carga un archivo desde el panel izquierdo para comenzar.")
 
-if archivo is not None and st.button("▶ Cargar archivo"):
+if archivo is not None and st.button("▶ Ejecutar cálculo"):
 
     df = pd.read_excel(archivo)
     df.columns = df.columns.str.strip()
@@ -172,39 +168,18 @@ if archivo is not None and st.button("▶ Cargar archivo"):
     volumen = (q["Valor"] * q["Delta_t"] / 1000).sum()
 
     # =====================================================
-    # MNF (FIX REAL)
+    # MNF (robusto)
     # =====================================================
 
     q_mnf = q.copy()
-
-    # 🔥 FIX: asegurar numérico REAL antes de interpolar
     q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
-
-    # eliminar ceros (si son tandeo o cierre)
     q_mnf.loc[q_mnf["Valor_mnf"] == 0, "Valor_mnf"] = pd.NA
-
-    # forzar float (CRÍTICO para evitar object dtype)
     q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].astype("float64")
-
-    # interpolación segura
-    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(
-        limit=2,
-        limit_direction="both"
-    )
-
-    # relleno final
+    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(limit=2, limit_direction="both")
     q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].ffill().bfill()
 
-    q_noche = q_mnf[
-        (q_mnf["FechaHora"].dt.hour >= 2) &
-        (q_mnf["FechaHora"].dt.hour < 4)
-    ]
-
+    q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)]
     nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
-
-    # =====================================================
-    # RANGO
-    # =====================================================
 
     rango = f"{q['FechaHora'].min().strftime('%d/%m/%Y')} - {q['FechaHora'].max().strftime('%d/%m/%Y')}"
 
@@ -235,13 +210,12 @@ if archivo is not None and st.button("▶ Cargar archivo"):
     kpi(c6, "Periodo", rango)
 
     # =====================================================
-    # TABLA
+    # LAYOUT PRINCIPAL
     # =====================================================
 
     col1, col2 = st.columns([1, 2.3])
 
     with col1:
-
         st.subheader("📋 Resumen")
 
         resumen = pd.DataFrame({
@@ -256,14 +230,7 @@ if archivo is not None and st.button("▶ Cargar archivo"):
             "Unidad": ["bar", "bar", "lps", "m³", "lps"]
         })
 
-        st.markdown(
-            resumen.to_html(index=False, classes="tabla-cea"),
-            unsafe_allow_html=True
-        )
-
-    # =====================================================
-    # GRÁFICO
-    # =====================================================
+        st.markdown(resumen.to_html(index=False), unsafe_allow_html=True)
 
     with col2:
 
