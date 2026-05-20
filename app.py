@@ -42,7 +42,7 @@ def clasificar_variable(var):
     return None
 
 # =====================================================
-# ESTILOS (TU DISEÑO ORIGINAL)
+# ESTILOS (SIN CAMBIOS)
 # =====================================================
 
 st.markdown(
@@ -137,7 +137,7 @@ if archivo is not None:
     if ejecutar:
 
         # =====================================================
-        # LEER
+        # LEER DATOS
         # =====================================================
 
         df = pd.read_excel(archivo)
@@ -178,7 +178,7 @@ if archivo is not None:
         p2_promedio = p2["Valor"].mean()
 
         # =====================================================
-        # Q LIMPIO (SIN CEROS + OUTLIERS)
+        # Q LIMPIO (sin ceros ni picos)
         # =====================================================
 
         q_clean = q.copy()
@@ -192,16 +192,6 @@ if archivo is not None:
             IQR = Q3 - Q1
             q_clean = q_clean[q_clean["Valor"] <= (Q3 + 1.5 * IQR)]
 
-        q_promedio = q_clean["Valor"].mean()
-
-        # =====================================================
-        # VOLUMEN
-        # =====================================================
-
-        q["Delta_t_s"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
-        q["Volumen_m3"] = (q["Valor"] * q["Delta_t_s"]) / 1000
-        volumen_total = q["Volumen_m3"].sum()
-
         # =====================================================
         # TANDEO
         # =====================================================
@@ -211,6 +201,23 @@ if archivo is not None:
 
         porcentaje_cero = q["is_zero"].mean()
         es_tandeo = porcentaje_cero > 0.4
+
+        # =====================================================
+        # Q PROMEDIO FINAL (REGLA CLAVE)
+        # =====================================================
+
+        if es_tandeo:
+            q_promedio_final = q["Valor"].mean()   # incluye ceros + picos
+        else:
+            q_promedio_final = q_clean["Valor"].mean()
+
+        # =====================================================
+        # VOLUMEN
+        # =====================================================
+
+        q["Delta_t_s"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
+        q["Volumen_m3"] = (q["Valor"] * q["Delta_t_s"]) / 1000
+        volumen_total = q["Volumen_m3"].sum()
 
         # =====================================================
         # MNF
@@ -253,21 +260,17 @@ if archivo is not None:
 
         col1.metric("P. aguas arriba", f"{p1_promedio:.2f} bar")
         col2.metric("P. aguas abajo", f"{p2_promedio:.2f} bar")
-        col3.metric("Q promedio", f"{q_promedio:.2f} lps")
+        col3.metric("Q promedio", f"{q_promedio_final:.2f} lps")
         col4.metric("Volumen total", f"{volumen_total:.2f} m³")
 
         if nmf is not None:
             col5.metric("MNF", f"{nmf:.2f} lps")
 
         # =====================================================
-        # LAYOUT
+        # TABLA RESUMEN
         # =====================================================
 
         col_izq, col_der = st.columns([1, 2.3])
-
-        # =====================================================
-        # TABLA RESUMEN (RESTAURADA)
-        # =====================================================
 
         with col_izq:
 
@@ -284,7 +287,7 @@ if archivo is not None:
                 "Valor": [
                     f"{p1_promedio:.2f}",
                     f"{p2_promedio:.2f}",
-                    f"{q_promedio:.2f}",
+                    f"{q_promedio_final:.2f}",
                     f"{volumen_total:.2f}",
                     f"{nmf:.2f}" if nmf is not None else "-"
                 ],
@@ -297,7 +300,7 @@ if archivo is not None:
             )
 
         # =====================================================
-        # GRÁFICA
+        # GRÁFICA (CONSISTENTE CON KPI)
         # =====================================================
 
         with col_der:
@@ -316,7 +319,7 @@ if archivo is not None:
 
             fig.add_trace(go.Scatter(
                 x=[q["FechaHora"].min(), q["FechaHora"].max()],
-                y=[q["Valor"].mean(), q["Valor"].mean()],
+                y=[q_promedio_final, q_promedio_final],
                 mode="lines",
                 name="Caudal promedio",
                 line=dict(width=2, color="red", dash="dot")
