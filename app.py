@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# FIX ESPACIADO SUPERIOR (IMPORTANTE)
+# ESTILOS GLOBALES
 # =====================================================
 
 st.markdown(
@@ -26,17 +26,9 @@ st.markdown(
         font-family: 'Akt', sans-serif !important;
     }
 
-    .block-container {
+    .block-container{
         padding-top: 2.5rem !important;
         padding-bottom: 0rem !important;
-    }
-
-    header {
-        padding-top: 1.5rem !important;
-    }
-
-    section.main {
-        padding-top: 1.2rem !important;
     }
 
     h1, h2, h3 {
@@ -86,11 +78,7 @@ col_logo, col_titulo = st.columns([0.8, 4.2])
 
 with col_logo:
     st.markdown("<div style='padding-top:10px;'></div>", unsafe_allow_html=True)
-
-    st.image(
-        "logo.png",
-        width=170  # logo grande sin recorte
-    )
+    st.image("logo.png", width=170)
 
 with col_titulo:
 
@@ -109,7 +97,7 @@ Calcula automáticamente:
 """)
 
 # =====================================================
-# UPLOAD (limpio)
+# UPLOAD
 # =====================================================
 
 archivo = st.file_uploader("", type=["xlsx"])
@@ -167,10 +155,6 @@ if archivo is not None:
         q["Hora"] = q["FechaHora"].dt.hour
         es_tandeo = (q["Valor"] == 0).mean() > 0.4
 
-        # =====================================================
-        # Q PROM
-        # =====================================================
-
         if es_tandeo:
             q_prom = q["Valor"].mean()
         else:
@@ -185,7 +169,7 @@ if archivo is not None:
         volumen = q["Volumen"].sum()
 
         # =====================================================
-        # MNF (robusto simple)
+        # MNF
         # =====================================================
 
         q_mnf = q.copy()
@@ -201,11 +185,12 @@ if archivo is not None:
         nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
 
         # =====================================================
-        # RANGO FECHAS
+        # RANGO DE FECHAS
         # =====================================================
 
         fecha_ini = q["FechaHora"].min()
         fecha_fin = q["FechaHora"].max()
+
         rango_fechas = f"{fecha_ini.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
 
         # =====================================================
@@ -221,10 +206,36 @@ if archivo is not None:
         c3.metric("Q prom", f"{q_prom:.2f} lps")
         c4.metric("Volumen", f"{volumen:.2f} m³")
         c5.metric("MNF", f"{nmf:.2f}" if nmf else "-")
-        c6.metric("Periodo", rango_fechas)
 
         # =====================================================
-        # TABLA RESUMEN (RESTAURADA)
+        # KPI PERIODO (AJUSTADO)
+        # =====================================================
+
+        c6.markdown(
+            f"""
+            <div style="
+                background-color:#f8f9fa;
+                border:1px solid #e6e6e6;
+                border-radius:10px;
+                padding:10px;
+                font-family:'Akt', sans-serif;
+                text-align:center;
+                height:100%;
+                display:flex;
+                flex-direction:column;
+                justify-content:center;
+            ">
+                <div style="font-size:12px; font-weight:600;">Periodo</div>
+                <div style="font-size:13px; line-height:1.2; margin-top:4px;">
+                    {rango_fechas}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # =====================================================
+        # TABLA RESUMEN (AKT FIX)
         # =====================================================
 
         col1, col2 = st.columns([1, 2.3])
@@ -246,7 +257,36 @@ if archivo is not None:
             })
 
             st.markdown(
-                resumen.to_html(index=False),
+                """
+                <style>
+                .tabla-cea {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-family: 'Akt', sans-serif !important;
+                    font-size: 15px;
+                }
+
+                .tabla-cea th {
+                    background-color: #f2f2f2;
+                    padding: 12px;
+                    text-align: center;
+                    font-family: 'Akt', sans-serif !important;
+                    font-weight: 700;
+                }
+
+                .tabla-cea td {
+                    padding: 12px;
+                    text-align: center;
+                    font-family: 'Akt', sans-serif !important;
+                    font-weight: 500;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                resumen.to_html(index=False, classes="tabla-cea"),
                 unsafe_allow_html=True
             )
 
