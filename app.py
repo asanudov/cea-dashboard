@@ -13,6 +13,43 @@ st.set_page_config(
 )
 
 # =====================================================
+# FIX ESPACIADO SUPERIOR (IMPORTANTE)
+# =====================================================
+
+st.markdown(
+    """
+    <style>
+
+    @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Akt', sans-serif !important;
+    }
+
+    .block-container {
+        padding-top: 2.5rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    header {
+        padding-top: 1.5rem !important;
+    }
+
+    section.main {
+        padding-top: 1.2rem !important;
+    }
+
+    h1, h2, h3 {
+        font-family: 'Akt', sans-serif !important;
+        font-weight: 700 !important;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# =====================================================
 # NORMALIZACIÓN
 # =====================================================
 
@@ -42,47 +79,17 @@ def clasificar_variable(var):
     return None
 
 # =====================================================
-# ESTILOS
-# =====================================================
-
-st.markdown(
-    """
-    <style>
-
-    @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'Akt', sans-serif !important;
-    }
-
-    .block-container{
-        padding-top: 0.5rem;
-        padding-bottom: 0rem;
-    }
-
-    h1, h2, h3 {
-        font-family: 'Akt', sans-serif !important;
-        font-weight: 700 !important;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# =====================================================
 # HEADER
 # =====================================================
 
 col_logo, col_titulo = st.columns([0.8, 4.2])
 
 with col_logo:
-
-    st.markdown("<div style='padding-top:5px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='padding-top:10px;'></div>", unsafe_allow_html=True)
 
     st.image(
         "logo.png",
-        width=170  # 🔥 MÁS GRANDE SIN RECORTE
+        width=170  # logo grande sin recorte
     )
 
 with col_titulo:
@@ -98,11 +105,11 @@ Calcula automáticamente:
 - Volumen total (m³)  
 - MNF (Minimum Night Flow)  
 
-**Nota:** el archivo debe ser desde SkyPlatform sin alterar, de preferencia en un periodo de tiempo mayor a 2 semanas.
+**Nota:** el archivo debe ser desde SkyPlatform sin alterar, de preferencia en un periodo mayor a 2 semanas.
 """)
 
 # =====================================================
-# UPLOAD LIMPIO
+# UPLOAD (limpio)
 # =====================================================
 
 archivo = st.file_uploader("", type=["xlsx"])
@@ -139,7 +146,7 @@ if archivo is not None:
         )
 
         # =====================================================
-        # CLASIFICAR VARIABLES
+        # VARIABLES
         # =====================================================
 
         df["Tipo"] = df["Variable"].apply(clasificar_variable)
@@ -178,39 +185,31 @@ if archivo is not None:
         volumen = q["Volumen"].sum()
 
         # =====================================================
-        # MNF (ROBUSTO)
+        # MNF (robusto simple)
         # =====================================================
 
         q_mnf = q.copy()
 
         q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
-
         q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].replace(0, pd.NA)
-
         q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(limit=2)
-
         q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].ffill().bfill()
 
         q_mnf["Hora"] = q_mnf["FechaHora"].dt.hour
-
         q_noche = q_mnf[(q_mnf["Hora"] >= 2) & (q_mnf["Hora"] < 4)]
 
-        if not q_noche.empty:
-            nmf = q_noche["Valor_mnf"].min()
-        else:
-            nmf = None
+        nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
 
         # =====================================================
-        # RANGO DE FECHAS
+        # RANGO FECHAS
         # =====================================================
 
         fecha_ini = q["FechaHora"].min()
         fecha_fin = q["FechaHora"].max()
-
         rango_fechas = f"{fecha_ini.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
 
         # =====================================================
-        # KPIs UI
+        # KPIs
         # =====================================================
 
         st.divider()
@@ -225,46 +224,75 @@ if archivo is not None:
         c6.metric("Periodo", rango_fechas)
 
         # =====================================================
-        # GRÁFICA
+        # TABLA RESUMEN (RESTAURADA)
         # =====================================================
 
-        fig = go.Figure()
+        col1, col2 = st.columns([1, 2.3])
 
-        fig.add_trace(go.Scatter(
-            x=q["FechaHora"],
-            y=q["Valor"],
-            mode="lines",
-            name="Q",
-            line=dict(width=2, color="blue")
-        ))
+        with col1:
 
-        fig.add_trace(go.Scatter(
-            x=[q["FechaHora"].min(), q["FechaHora"].max()],
-            y=[q_prom, q_prom],
-            mode="lines",
-            name="Q promedio",
-            line=dict(width=2, color="red", dash="dot")
-        ))
+            st.subheader("📋 Resumen")
 
-        if nmf is not None:
+            resumen = pd.DataFrame({
+                "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
+                "Valor": [
+                    f"{p1_prom:.2f}",
+                    f"{p2_prom:.2f}",
+                    f"{q_prom:.2f}",
+                    f"{volumen:.2f}",
+                    f"{nmf:.2f}" if nmf else "-"
+                ],
+                "Unidad": ["bar", "bar", "lps", "m³", "lps"]
+            })
+
+            st.markdown(
+                resumen.to_html(index=False),
+                unsafe_allow_html=True
+            )
+
+        # =====================================================
+        # GRÁFICO
+        # =====================================================
+
+        with col2:
+
+            fig = go.Figure()
+
             fig.add_trace(go.Scatter(
-                x=[q["FechaHora"].min(), q["FechaHora"].max()],
-                y=[nmf, nmf],
+                x=q["FechaHora"],
+                y=q["Valor"],
                 mode="lines",
-                name="MNF",
-                line=dict(width=2, color="green", dash="dash")
+                name="Q",
+                line=dict(width=2, color="blue")
             ))
 
-        fig.update_layout(
-            height=420,
-            hovermode="x unified",
-            xaxis=dict(rangeslider=dict(visible=True)),
-            legend=dict(
-                orientation="h",
-                y=1.08,
-                x=0.5,
-                xanchor="center"
-            )
-        )
+            fig.add_trace(go.Scatter(
+                x=[q["FechaHora"].min(), q["FechaHora"].max()],
+                y=[q_prom, q_prom],
+                mode="lines",
+                name="Q promedio",
+                line=dict(width=2, color="red", dash="dot")
+            ))
 
-        st.plotly_chart(fig, use_container_width=True)
+            if nmf is not None:
+                fig.add_trace(go.Scatter(
+                    x=[q["FechaHora"].min(), q["FechaHora"].max()],
+                    y=[nmf, nmf],
+                    mode="lines",
+                    name="MNF",
+                    line=dict(width=2, color="green", dash="dash")
+                ))
+
+            fig.update_layout(
+                height=420,
+                hovermode="x unified",
+                xaxis=dict(rangeslider=dict(visible=True)),
+                legend=dict(
+                    orientation="h",
+                    y=1.08,
+                    x=0.5,
+                    xanchor="center"
+                )
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
