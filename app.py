@@ -19,23 +19,29 @@ st.set_page_config(
 st.markdown(
 """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Akt:wght=400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
 
 /* 1. FUENTE GLOBAL SIN ROMPER ICONOS */
 html, body, [class*="css"], h1, h2, h3, .stMarkdown, .kpi-box {
     font-family: 'Akt', sans-serif !important;
 }
 
-/* 2. ELIMINAR TOTALMENTE EL MENÚ Y EL ESPACIO MAGENTA SUPERIOR */
+/* 2. OCULTAR TOTALMENTE EL MENU SUPERIOR Y ELIMINAR EL ESPACIO EN BLANCO */
 header[data-testid="stHeader"] {
     visibility: hidden;
     display: none !important;
     height: 0px !important;
 }
 
-[data-testid="stMainBlockContainer"] {
+/* AJUSTE SEGURO DE CONTENEDORES PARA SUBIR EL TITULO SIN OCULTARLO */
+[data-testid="stAppViewContainer"] {
     padding-top: 0rem !important;
-    margin-top: -3.5rem !important; /* Desplaza el contenido hacia arriba */
+}
+
+[data-testid="stMainBlockContainer"] {
+    padding-top: 1rem !important; /* Espacio mínimo seguro para que se vea el título */
+    padding-bottom: 1rem !important;
+    margin-top: 0rem !important;
 }
 
 /* 3. ESTILO DE LA TABLA RESUMEN */
@@ -55,7 +61,7 @@ table td {
     border: 1px solid #e6e6e6 !important;
 }
 
-/* 4. SIDEBAR ELEMENTOS OMINOSOS */
+/* 4. SIDEBAR ELEMENTOS */
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] header {
@@ -92,7 +98,7 @@ div.stButton > button {
 .kpi-title { font-size: 14px; font-weight: 600; }
 .kpi-value { font-size: 18px; font-weight: 600; }
 
-/* 6. CORRECCIÓN EXCLUSIVA PARA EL MARCO EN AZUL CIELO (PERIODO) */
+/* 6. RECUADRO REDUCIDO PARA EL PERIODO (COMPACTO) */
 .kpi-periodo {
     background-color: #f8f9fa;
     border: 1px solid #e6e6e6;
@@ -105,11 +111,11 @@ div.stButton > button {
     justify-content: center;
 }
 .kpi-periodo .kpi-title {
-    font-size: 11px !important; /* Título más pequeño */
+    font-size: 11px !important;
     font-weight: 600;
 }
 .kpi-periodo .kpi-value {
-    font-size: 12px !important; /* Fechas compactas para que quepan en el recuadro */
+    font-size: 12px !important;
     font-weight: 600;
     line-height: 1.3;
 }
@@ -118,8 +124,9 @@ div.stButton > button {
 h1 {
     font-size: 26px !important;
     margin-top: 0px !important;
-    margin-bottom: 10px !important;
+    margin-bottom: 15px !important;
     color: #1E293B;
+    line-height: 1.2 !important;
 }
 </style>
 """,
@@ -223,7 +230,7 @@ if archivo is not None and ejecutar_calculo:
     kpi(c4, "Volumen", f"{volumen:.2f} m³")
     kpi(c5, "MNF (lps)", f"{nmf:.2f}" if nmf else "-")
     
-    # Renderizado exclusivo de tamaño reducido para el bloque de Periodo (C6)
+    # Renderizado exclusivo reducido para Periodo
     c6.markdown(
         f"""
         <div class="kpi-periodo">
