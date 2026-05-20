@@ -88,7 +88,7 @@ def clasificar_variable(var):
     return None
 
 # =====================================================
-# SIDEBAR
+# SIDEBAR (CLEAN FIX)
 # =====================================================
 
 with st.sidebar:
@@ -101,16 +101,41 @@ with st.sidebar:
 Este dashboard permite:
 
 - Analizar presiones (P1 / P2)
-- Calcular caudal promedio
-- Estimar volumen total
-- Detectar MNF (Minimum Night Flow)
-- Identificar comportamiento de tandeo
+- Caudal promedio
+- Volumen total
+- MNF (Minimum Night Flow)
+- Detectar tandeo
 """)
 
+    # 🔥 FIX CSS LOCAL SOLO PARA SIDEBAR UPLOADER
+    st.markdown("""
+    <style>
+
+    /* QUITAR TEXTO DE INSTRUCCIONES */
+    section[data-testid="stFileUploaderDropzoneInstructions"] {
+        display: none !important;
+    }
+
+    /* QUITAR ICONO keyboard_double / SVG INTERNOS */
+    section[data-testid="stFileUploader"] svg {
+        display: none !important;
+    }
+
+    /* LIMPIAR LABELS INTERNOS */
+    section[data-testid="stFileUploader"] label {
+        display: none !important;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
     archivo = st.file_uploader(
-        "Cargar archivo Excel",
-        type=["xlsx"]
+        label="",
+        type=["xlsx"],
+        label_visibility="collapsed"
     )
+
+    st.caption("📂 Cargar archivo Excel")
 
 # =====================================================
 # MAIN
