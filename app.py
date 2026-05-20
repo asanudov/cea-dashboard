@@ -13,7 +13,39 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS
+# NORMALIZACIÓN Y CLASIFICACIÓN DE VARIABLES
+# =====================================================
+
+def normalizar(texto):
+    if pd.isna(texto):
+        return ""
+    texto = str(texto).strip().lower()
+    texto = ''.join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+    return texto
+
+
+def clasificar_variable(var):
+    v = normalizar(var)
+
+    # P1
+    if "p1" in v or "presion 1" in v or "presión 1" in v:
+        return "P1"
+
+    # P2
+    if "p2" in v or "presion 2" in v or "presión 2" in v:
+        return "P2"
+
+    # Q
+    if v == "q" or "caudal" in v or "q (lps)" in v or ("q" in v and "lps" in v):
+        return "Q"
+
+    return None
+
+# =====================================================
+# ESTILOS (INTACTO)
 # =====================================================
 
 st.markdown(
@@ -80,38 +112,6 @@ st.markdown(
 )
 
 # =====================================================
-# NORMALIZACIÓN Y VARIABLES
-# =====================================================
-
-def normalizar(texto):
-    if pd.isna(texto):
-        return ""
-    texto = str(texto).strip().lower()
-    texto = ''.join(
-        c for c in unicodedata.normalize('NFD', texto)
-        if unicodedata.category(c) != 'Mn'
-    )
-    return texto
-
-
-def clasificar_variable(var):
-    v = normalizar(var)
-
-    # PRESIÓN 1
-    if "p1" in v or "presion 1" in v or "presión 1" in v:
-        return "P1"
-
-    # PRESIÓN 2
-    if "p2" in v or "presion 2" in v or "presión 2" in v:
-        return "P2"
-
-    # CAUDAL
-    if v == "q" or "caudal" in v or "q (lps)" in v or ("q" in v and "lps" in v):
-        return "Q"
-
-    return None
-
-# =====================================================
 # HEADER
 # =====================================================
 
@@ -123,11 +123,11 @@ with col_logo:
 
 with col_titulo:
     st.markdown(
-        "<h1 style='margin-bottom:0px;'>Dashboard para Datos de Gestión de Presiones</h1>",
+        "<h1>Dashboard para Datos de Gestión de Presiones</h1>",
         unsafe_allow_html=True
     )
     st.markdown(
-        "<h3 style='margin-top:0px; color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>",
+        "<h3 style='color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>",
         unsafe_allow_html=True
     )
 
@@ -181,15 +181,36 @@ if archivo is not None:
         q = df[df["Tipo"] == "Q"].copy()
 
         # =====================================================
-        # PROMEDIOS
+        # PROMEDIOS PRESIONES
         # =====================================================
 
         p1_promedio = p1["Valor"].mean()
         p2_promedio = p2["Valor"].mean()
-        q_promedio = q["Valor"].mean()
 
         # =====================================================
-        # VOLUMEN
+        # ================= Q LIMPIO =================
+        # =====================================================
+
+        q_clean = q.copy()
+
+        # eliminar ceros (tandeo/cierre)
+        q_clean = q_clean[q_clean["Valor"] > 0]
+
+        # eliminar picos (IQR)
+        if not q_clean.empty:
+
+            Q1 = q_clean["Valor"].quantile(0.25)
+            Q3 = q_clean["Valor"].quantile(0.75)
+            IQR = Q3 - Q1
+
+            limite_superior = Q3 + 1.5 * IQR
+
+            q_clean = q_clean[q_clean["Valor"] <= limite_superior]
+
+        q_promedio = q_clean["Valor"].mean()
+
+        # =====================================================
+        # VOLUMEN (SIN CAMBIOS)
         # =====================================================
 
         q["Delta_t_s"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
@@ -197,7 +218,7 @@ if archivo is not None:
         volumen_total = q["Volumen_m3"].sum()
 
         # =====================================================
-        # DETECCIÓN DE TANDEO (SOLO MNF)
+        # DETECCIÓN TANDEO
         # =====================================================
 
         q["Hora"] = q["FechaHora"].dt.hour
@@ -216,7 +237,7 @@ if archivo is not None:
         es_tandeo = (porcentaje_cero > 0.4) or (max_bloque_cero >= 6)
 
         # =====================================================
-        # MNF
+        # MNF (USANDO Q LIMPIO)
         # =====================================================
 
         if es_tandeo:
@@ -227,7 +248,10 @@ if archivo is not None:
 
         else:
 
-            q_noche = q[(q["Hora"] >= 2) & (q["Hora"] < 4)].copy()
+            q_noche = q_clean[
+                (q_clean["Hora"] >= 2) &
+                (q_clean["Hora"] < 4)
+            ].copy()
 
             if not q_noche.empty:
 
@@ -278,7 +302,13 @@ if archivo is not None:
             st.subheader("📋 Resumen")
 
             resultado = pd.DataFrame({
-                "Indicador": ["P. aguas arriba", "P. aguas abajo", "Q promedio", "Volumen total", "MNF"],
+                "Indicador": [
+                    "P. aguas arriba",
+                    "P. aguas abajo",
+                    "Q promedio",
+                    "Volumen total",
+                    "MNF"
+                ],
                 "Valor": [
                     f"{p1_promedio:.2f}",
                     f"{p2_promedio:.2f}",
@@ -295,7 +325,7 @@ if archivo is not None:
             )
 
         # =====================================================
-        # GRÁFICA (AJUSTADA SOLO LEYENDA)
+        # GRÁFICA (INTACTA + MEJOR LAYOUT)
         # =====================================================
 
         with col_der:
@@ -332,19 +362,9 @@ if archivo is not None:
             fig.update_layout(
                 height=420,
                 margin=dict(l=10, r=10, t=40, b=10),
-
                 hovermode="x unified",
-
-                xaxis=dict(
-                    rangeslider=dict(visible=True),
-                    title="Fecha y hora"
-                ),
-
-                yaxis=dict(
-                    title="Caudal (lps)",
-                    range=[q["Valor"].min()*0.9, q["Valor"].max()*1.1]
-                ),
-
+                xaxis=dict(rangeslider=dict(visible=True)),
+                yaxis=dict(range=[q["Valor"].min()*0.9, q["Valor"].max()*1.1]),
                 legend=dict(
                     orientation="h",
                     yanchor="bottom",
