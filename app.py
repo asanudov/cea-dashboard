@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# NORMALIZACIÓN DE VARIABLES
+# NORMALIZACIÓN VARIABLES
 # =====================================================
 
 def normalizar(texto):
@@ -30,22 +30,19 @@ def normalizar(texto):
 def clasificar_variable(var):
     v = normalizar(var)
 
-    # PRESIÓN 1
     if "p1" in v or "presion 1" in v:
         return "P1"
 
-    # PRESIÓN 2
     if "p2" in v or "presion 2" in v:
         return "P2"
 
-    # CAUDAL
     if "q" in v or "caudal" in v:
         return "Q"
 
     return None
 
 # =====================================================
-# ESTILO (INTACTO)
+# ESTILOS (SIN CAMBIOS)
 # =====================================================
 
 st.markdown(
@@ -190,12 +187,10 @@ if archivo is not None:
         # =====================================================
 
         if es_tandeo:
-            q_prom = q["Valor"].mean()   # incluye ceros + picos
+            q_prom = q["Valor"].mean()
         else:
-            q_clean = q.copy()
-            q_clean = q_clean[q_clean["Valor"] > 0]
+            q_clean = q[q["Valor"] > 0].copy()
 
-            # outliers
             if not q_clean.empty:
                 Q1 = q_clean["Valor"].quantile(0.25)
                 Q3 = q_clean["Valor"].quantile(0.75)
@@ -213,7 +208,7 @@ if archivo is not None:
         volumen = q["Volumen"].sum()
 
         # =====================================================
-        # MNF (CON CEROS AISLADOS CORREGIDOS)
+        # MNF (CORREGIDO: SIN BLOQUES DE CERO LARGOS)
         # =====================================================
 
         if es_tandeo:
@@ -224,11 +219,20 @@ if archivo is not None:
         else:
 
             q_mnf = q.copy()
+            q_mnf["Hora"] = q_mnf["FechaHora"].dt.hour
+
+            # eliminar bloques largos de cero (fallas o cortes)
+            q_mnf["is_zero"] = q_mnf["Valor"] == 0
+            q_mnf["block"] = (q_mnf["is_zero"] != q_mnf["is_zero"].shift()).cumsum()
+
+            block_sizes = q_mnf.groupby("block")["is_zero"].transform("size")
+
+            q_mnf = q_mnf[~((q_mnf["is_zero"]) & (block_sizes > 3))].copy()
+
+            # suavizado de ceros aislados
             q_mnf["Valor_mnf"] = q_mnf["Valor"].replace(0, pd.NA)
             q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(limit=2)
             q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].ffill().bfill()
-
-            q_mnf["Hora"] = q_mnf["FechaHora"].dt.hour
 
             q_noche = q_mnf[(q_mnf["Hora"] >= 2) & (q_mnf["Hora"] < 4)].copy()
 
@@ -291,8 +295,10 @@ if archivo is not None:
                 "Unidad": ["bar", "bar", "lps", "m³", "lps"]
             })
 
-            st.markdown(tabla.to_html(index=False, classes="tabla-cea"),
-                        unsafe_allow_html=True)
+            st.markdown(
+                tabla.to_html(index=False, classes="tabla-cea"),
+                unsafe_allow_html=True
+            )
 
         # =====================================================
         # GRÁFICO
