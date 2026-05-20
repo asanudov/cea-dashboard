@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# NORMALIZACIÓN Y CLASIFICACIÓN DE VARIABLES
+# NORMALIZACIÓN Y CLASIFICACIÓN
 # =====================================================
 
 def normalizar(texto):
@@ -30,22 +30,19 @@ def normalizar(texto):
 def clasificar_variable(var):
     v = normalizar(var)
 
-    # P1
     if "p1" in v or "presion 1" in v or "presión 1" in v:
         return "P1"
 
-    # P2
     if "p2" in v or "presion 2" in v or "presión 2" in v:
         return "P2"
 
-    # Q
     if v == "q" or "caudal" in v or "q (lps)" in v or ("q" in v and "lps" in v):
         return "Q"
 
     return None
 
 # =====================================================
-# ESTILOS (INTACTO)
+# ESTILOS (SIN CAMBIOS)
 # =====================================================
 
 st.markdown(
@@ -118,18 +115,11 @@ st.markdown(
 col_logo, col_titulo = st.columns([0.7, 4.3])
 
 with col_logo:
-    st.markdown("<div style='padding-top:25px;'></div>", unsafe_allow_html=True)
     st.image("logo.png", width=110)
 
 with col_titulo:
-    st.markdown(
-        "<h1>Dashboard para Datos de Gestión de Presiones</h1>",
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        "<h3 style='color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>",
-        unsafe_allow_html=True
-    )
+    st.markdown("<h1>Dashboard para Datos de Gestión de Presiones</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>", unsafe_allow_html=True)
 
 # =====================================================
 # UPLOAD
@@ -147,7 +137,7 @@ if archivo is not None:
     if ejecutar:
 
         # =====================================================
-        # LEER EXCEL
+        # LEER
         # =====================================================
 
         df = pd.read_excel(archivo)
@@ -169,7 +159,7 @@ if archivo is not None:
         )
 
         # =====================================================
-        # CLASIFICAR VARIABLES
+        # CLASIFICAR
         # =====================================================
 
         df["Tipo"] = df["Variable"].apply(clasificar_variable)
@@ -181,31 +171,28 @@ if archivo is not None:
         q = df[df["Tipo"] == "Q"].copy()
 
         # =====================================================
-        # PROMEDIOS PRESIONES
+        # PRESIONES
         # =====================================================
 
         p1_promedio = p1["Valor"].mean()
         p2_promedio = p2["Valor"].mean()
 
         # =====================================================
-        # ================= Q LIMPIO =================
+        # Q LIMPIO
         # =====================================================
 
         q_clean = q.copy()
+        q_clean["Hora"] = q_clean["FechaHora"].dt.hour  # 🔥 FIX CRÍTICO
 
-        # eliminar ceros (tandeo/cierre)
+        # eliminar ceros
         q_clean = q_clean[q_clean["Valor"] > 0]
 
-        # eliminar picos (IQR)
+        # eliminar outliers (IQR)
         if not q_clean.empty:
-
             Q1 = q_clean["Valor"].quantile(0.25)
             Q3 = q_clean["Valor"].quantile(0.75)
             IQR = Q3 - Q1
-
-            limite_superior = Q3 + 1.5 * IQR
-
-            q_clean = q_clean[q_clean["Valor"] <= limite_superior]
+            q_clean = q_clean[q_clean["Valor"] <= (Q3 + 1.5 * IQR)]
 
         q_promedio = q_clean["Valor"].mean()
 
@@ -218,26 +205,18 @@ if archivo is not None:
         volumen_total = q["Volumen_m3"].sum()
 
         # =====================================================
-        # DETECCIÓN TANDEO
+        # TANDEO
         # =====================================================
 
         q["Hora"] = q["FechaHora"].dt.hour
-
         q["is_zero"] = q["Valor"] == 0
-        q["block"] = (q["is_zero"] != q["is_zero"].shift()).cumsum()
 
         porcentaje_cero = q["is_zero"].mean()
 
-        bloques = q[q["is_zero"]].groupby("block")["FechaHora"].agg(
-            lambda x: (x.max() - x.min()).total_seconds() / 3600
-        )
-
-        max_bloque_cero = bloques.max() if not bloques.empty else 0
-
-        es_tandeo = (porcentaje_cero > 0.4) or (max_bloque_cero >= 6)
+        es_tandeo = porcentaje_cero > 0.4
 
         # =====================================================
-        # MNF (USANDO Q LIMPIO)
+        # MNF
         # =====================================================
 
         if es_tandeo:
@@ -248,28 +227,21 @@ if archivo is not None:
 
         else:
 
-            q_noche = q_clean[
-                (q_clean["Hora"] >= 2) &
-                (q_clean["Hora"] < 4)
-            ].copy()
+            q_noche = q_clean[(q_clean["Hora"] >= 2) & (q_clean["Hora"] < 4)].copy()
 
             if not q_noche.empty:
 
                 q_noche = q_noche.sort_values("FechaHora")
 
-                intervalo_min = q_noche["FechaHora"].diff().dt.total_seconds().median() / 60
-                muestras_60min = max(1, int(60 / intervalo_min))
+                intervalo = q_noche["FechaHora"].diff().dt.total_seconds().median() / 60
+                ventana = max(1, int(60 / intervalo))
 
-                q_noche["Rolling_MNF"] = (
-                    q_noche["Valor"]
-                    .rolling(window=muestras_60min, min_periods=1)
-                    .mean()
-                )
+                q_noche["MNF"] = q_noche["Valor"].rolling(ventana, min_periods=1).mean()
 
-                idx_nmf = q_noche["Rolling_MNF"].idxmin()
+                idx = q_noche["MNF"].idxmin()
 
-                nmf = q_noche.loc[idx_nmf, "Rolling_MNF"]
-                hora_nmf = q_noche.loc[idx_nmf, "FechaHora"]
+                nmf = q_noche.loc[idx, "MNF"]
+                hora_nmf = q_noche.loc[idx, "FechaHora"]
 
             else:
                 nmf = None
@@ -292,45 +264,12 @@ if archivo is not None:
             col5.metric("MNF", f"{nmf:.2f} lps")
 
         # =====================================================
-        # TABLA
+        # GRÁFICA (SIN CAMBIOS VISUALES)
         # =====================================================
 
         col_izq, col_der = st.columns([1, 2.3])
 
-        with col_izq:
-
-            st.subheader("📋 Resumen")
-
-            resultado = pd.DataFrame({
-                "Indicador": [
-                    "P. aguas arriba",
-                    "P. aguas abajo",
-                    "Q promedio",
-                    "Volumen total",
-                    "MNF"
-                ],
-                "Valor": [
-                    f"{p1_promedio:.2f}",
-                    f"{p2_promedio:.2f}",
-                    f"{q_promedio:.2f}",
-                    f"{volumen_total:.2f}",
-                    f"{nmf:.2f}" if nmf is not None else "-"
-                ],
-                "Unidad": ["bar", "bar", "lps", "m³", "lps"]
-            })
-
-            st.markdown(
-                resultado.to_html(index=False, classes="tabla-cea"),
-                unsafe_allow_html=True
-            )
-
-        # =====================================================
-        # GRÁFICA (INTACTA + MEJOR LAYOUT)
-        # =====================================================
-
         with col_der:
-
-            st.subheader("📉 Serie temporal de caudal")
 
             fig = go.Figure()
 
@@ -344,7 +283,7 @@ if archivo is not None:
 
             fig.add_trace(go.Scatter(
                 x=[q["FechaHora"].min(), q["FechaHora"].max()],
-                y=[q_promedio, q_promedio],
+                y=[q["Valor"].mean(), q["Valor"].mean()],
                 mode="lines",
                 name="Caudal promedio",
                 line=dict(width=2, color="red", dash="dot")
@@ -367,10 +306,9 @@ if archivo is not None:
                 yaxis=dict(range=[q["Valor"].min()*0.9, q["Valor"].max()*1.1]),
                 legend=dict(
                     orientation="h",
-                    yanchor="bottom",
                     y=1.08,
-                    xanchor="center",
-                    x=0.5
+                    x=0.5,
+                    xanchor="center"
                 )
             )
 
@@ -382,7 +320,16 @@ if archivo is not None:
 
         st.download_button(
             "📥 Descargar resumen",
-            resultado.to_csv(index=False).encode("utf-8"),
-            "Resumen_Dashboard_CEA.csv",
+            pd.DataFrame({
+                "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
+                "Valor": [
+                    p1_promedio,
+                    p2_promedio,
+                    q_promedio,
+                    volumen_total,
+                    nmf if nmf is not None else "-"
+                ]
+            }).to_csv(index=False).encode("utf-8"),
+            "resumen.csv",
             "text/csv"
         )
