@@ -19,7 +19,7 @@ st.set_page_config(
 st.markdown(
 """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Akt:wght=400;500;600;700&display=swap');
 
 /* 1. FUENTE GLOBAL */
 html, body, [class*="css"], h1, h2, h3, .stMarkdown, .kpi-box {
@@ -37,29 +37,35 @@ header[data-testid="stHeader"] {
 }
 
 [data-testid="stMainBlockContainer"] {
-    padding-top: 0.5rem !important; /* Casi pegado al borde superior */
+    padding-top: 0.5rem !important; 
     margin-top: 0rem !important;
 }
 
-/* REDUCIR ESPACIOS ENTRE ELEMENTOS (ZONAS ROJAS) */
+/* --- JERARQUÍA DE TÍTULOS (CORREGIDA) --- */
 h1 {
-    font-size: 24px !important;
+    font-size: 26px !important; /* Título principal grande y dominante */
     margin-top: 0px !important;
-    margin-bottom: 5px !important; /* Menos espacio bajo el título principal */
+    margin-bottom: 8px !important; 
     padding-top: 0px !important;
+    color: #1E293B;
+    line-height: 1.2 !important;
 }
 
-h3 {
+/* Subtítulos más pequeños para marcar una jerarquía clara */
+h3, .section-subtitle {
+    font-size: 18px !important; 
     margin-top: 5px !important;
-    margin-bottom: 5px !important;
+    margin-bottom: 8px !important;
     padding-bottom: 0px !important;
+    color: #1E293B;
+    font-weight: 600 !important;
 }
 
 /* Sustituto compacto para st.divider() */
 .compact-divider {
     border-top: 1px solid #e6e6e6;
-    margin-top: 10px;
-    margin-bottom: 10px;
+    margin-top: 12px;
+    margin-bottom: 12px;
 }
 
 /* 3. ESTILO DE LA TABLA RESUMEN */
@@ -73,6 +79,10 @@ table thead th {
     text-align: left !important;
     padding: 8px !important;
     border: 1px solid #e6e6e6 !important;
+    font-size: 14px;
+}
+table td {
+    font-size: 13px;
 }
 
 /* 4. SIDEBAR ELEMENTOS */
@@ -103,12 +113,12 @@ div.stButton > button {
 }
 .kpi-title { 
     font-size: 13px; 
-    font-weight: 700 !important; /* Títulos en Negrita */
+    font-weight: 700 !important; 
     margin-bottom: 3px;
 }
 .kpi-value { 
     font-size: 17px; 
-    font-weight: 400 !important; /* Valores normales */
+    font-weight: 400 !important; 
 }
 
 /* Estilo específico para Periodo (C6) */
@@ -229,7 +239,7 @@ if archivo is not None and ejecutar_calculo:
     col_tabla, col_grafico = st.columns([1, 2.3])
 
     with col_tabla:
-        st.subheader("Resumen")
+        st.markdown('<h3 class="section-subtitle">Resumen</h3>', unsafe_allow_html=True)
         resumen = pd.DataFrame({
             "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
             "Valor": [f"{p1_prom:.2f}", f"{p2_prom:.2f}", f"{q_prom:.2f}", f"{volumen:.2f}", f"{nmf:.2f}" if nmf else "-"],
@@ -245,10 +255,10 @@ if archivo is not None and ejecutar_calculo:
             fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF", line=dict(width=2, color="green", dash="dash")))
 
         fig.update_layout(
-            height=480, 
-            margin=dict(t=20, b=20, l=10, r=10),
+            height=460, 
+            margin=dict(t=10, b=10, l=10, r=10),
             hovermode="x unified", 
             xaxis=dict(rangeslider=dict(visible=True), type="date"),
-            legend=dict(orientation="h", y=1.1, x=0.5, xanchor="center")
+            legend=dict(orientation="h", y=1.15, x=0.5, xanchor="center")
         )
         st.plotly_chart(fig, use_container_width=True)
