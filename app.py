@@ -13,20 +13,17 @@ st.set_page_config(
 )
 
 # =====================================================
-# NORMALIZADOR DE TEXTO (CLAVE)
+# NORMALIZACIÓN DE VARIABLES
 # =====================================================
 
 def normalizar(texto):
     if pd.isna(texto):
         return ""
     texto = str(texto).strip().lower()
-
-    # quitar acentos
     texto = ''.join(
         c for c in unicodedata.normalize('NFD', texto)
         if unicodedata.category(c) != 'Mn'
     )
-
     return texto
 
 def clasificar_variable(var):
@@ -40,14 +37,14 @@ def clasificar_variable(var):
     if v in ["p2", "presion 2", "presion2"]:
         return "P2"
 
-    # CAUDAL
+    # Q
     if v in ["q", "caudal"]:
         return "Q"
 
     return None
 
 # =====================================================
-# ESTILOS (igual que antes, resumido aquí)
+# ESTILOS
 # =====================================================
 
 st.markdown(
@@ -61,7 +58,7 @@ st.markdown(
 
     .block-container { padding-top: 1rem; padding-bottom: 0rem; }
 
-    h1, h2, h3 { font-family: 'Akt', sans-serif !important; font-weight: 700 !important; }
+    h1, h2, h3 { font-weight: 700 !important; }
 
     .tabla-cea {
         width: 100%;
@@ -95,8 +92,8 @@ with col_logo:
     st.image("logo.png", width=110)
 
 with col_titulo:
-    st.markdown("<h1>Dashboard para Datos de Gestión de Presiones</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>", unsafe_allow_html=True)
+    st.markdown("<h1>Dashboard Gestión de Presiones</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:#444;'>M.I. Alan Sañudo</h3>", unsafe_allow_html=True)
 
 # =====================================================
 # UPLOAD
@@ -114,7 +111,7 @@ if archivo is not None:
     if ejecutar:
 
         # =====================================================
-        # LEER EXCEL
+        # LEER DATOS
         # =====================================================
 
         df = pd.read_excel(archivo)
@@ -136,13 +133,11 @@ if archivo is not None:
         )
 
         # =====================================================
-        # 🔥 CLASIFICAR VARIABLES (NUEVO)
+        # CLASIFICAR VARIABLES
         # =====================================================
 
         df["Tipo"] = df["Variable"].apply(clasificar_variable)
-
         df = df[df["Tipo"].notnull()].copy()
-
         df = df.sort_values("FechaHora")
 
         # =====================================================
@@ -154,12 +149,41 @@ if archivo is not None:
         q = df[df["Tipo"] == "Q"].copy()
 
         # =====================================================
-        # PROMEDIOS
+        # PROMEDIOS BÁSICOS
         # =====================================================
 
         p1_promedio = p1["Valor"].mean()
         p2_promedio = p2["Valor"].mean()
-        q_promedio = q["Valor"].mean()
+
+        # =====================================================
+        # DETECCIÓN DE TANDEO
+        # =====================================================
+
+        q = q.sort_values("FechaHora")
+        q["Fecha"] = q["FechaHora"].dt.date
+        q["Hora"] = q["FechaHora"].dt.hour
+
+        porcentaje_cero = (q["Valor"] == 0).mean()
+
+        q["is_zero"] = q["Valor"] == 0
+        q["block"] = (q["is_zero"] != q["is_zero"].shift()).cumsum()
+
+        bloques = q[q["is_zero"]].groupby("block")["FechaHora"].agg(
+            lambda x: (x.max() - x.min()).total_seconds() / 3600
+        )
+
+        max_bloque_cero = bloques.max() if not bloques.empty else 0
+
+        es_tandeo = (porcentaje_cero > 0.4) or (max_bloque_cero >= 6)
+
+        # =====================================================
+        # Q PROMEDIO (AJUSTADO)
+        # =====================================================
+
+        if es_tandeo:
+            q_promedio = q[q["Valor"] > 0]["Valor"].mean()
+        else:
+            q_promedio = q["Valor"].mean()
 
         # =====================================================
         # VOLUMEN
@@ -170,46 +194,41 @@ if archivo is not None:
         volumen_total = q["Volumen_m3"].sum()
 
         # =====================================================
-        # EXCLUIR DÍAS CON 0 EN 1–4 AM
+        # MNF (SOLO SI NO HAY TANDEO)
         # =====================================================
 
-        q["Fecha"] = q["FechaHora"].dt.date
-        q["Hora"] = q["FechaHora"].dt.hour
+        if es_tandeo:
 
-        dias_invalidos = q[
-            (q["Hora"].between(1, 3)) &
-            (q["Valor"] == 0)
-        ]["Fecha"].unique()
-
-        q_mnf = q[~q["Fecha"].isin(dias_invalidos)].copy()
-
-        # =====================================================
-        # MNF
-        # =====================================================
-
-        q_noche = q_mnf[(q_mnf["Hora"] >= 2) & (q_mnf["Hora"] < 4)].copy()
-
-        if not q_noche.empty:
-
-            q_noche = q_noche.sort_values("FechaHora")
-
-            intervalo_min = q_noche["FechaHora"].diff().dt.total_seconds().median() / 60
-            muestras_60min = max(1, int(60 / intervalo_min))
-
-            q_noche["Rolling_MNF"] = (
-                q_noche["Valor"]
-                .rolling(window=muestras_60min, min_periods=1)
-                .mean()
-            )
-
-            idx_nmf = q_noche["Rolling_MNF"].idxmin()
-
-            nmf = q_noche.loc[idx_nmf, "Rolling_MNF"]
-            hora_nmf = q_noche.loc[idx_nmf, "FechaHora"]
-
-        else:
             nmf = None
             hora_nmf = None
+
+            st.warning("⚠️ Sistema en tandeo detectado: MNF desactivado.")
+
+        else:
+
+            q_noche = q[(q["Hora"] >= 2) & (q["Hora"] < 4)].copy()
+
+            if not q_noche.empty:
+
+                q_noche = q_noche.sort_values("FechaHora")
+
+                intervalo_min = q_noche["FechaHora"].diff().dt.total_seconds().median() / 60
+                muestras_60min = max(1, int(60 / intervalo_min))
+
+                q_noche["Rolling_MNF"] = (
+                    q_noche["Valor"]
+                    .rolling(window=muestras_60min, min_periods=1)
+                    .mean()
+                )
+
+                idx_nmf = q_noche["Rolling_MNF"].idxmin()
+
+                nmf = q_noche.loc[idx_nmf, "Rolling_MNF"]
+                hora_nmf = q_noche.loc[idx_nmf, "FechaHora"]
+
+            else:
+                nmf = None
+                hora_nmf = None
 
         # =====================================================
         # KPIs
