@@ -36,7 +36,7 @@ st.markdown(
         font-weight: 700 !important;
     }
 
-    /* KPI BOX STYLE */
+    /* KPI BOX */
     .kpi-box {
         background-color: #f8f9fa;
         border: 1px solid #e6e6e6;
@@ -50,14 +50,16 @@ st.markdown(
         font-family: 'Akt', sans-serif !important;
     }
 
+    /* 🔥 SOLO AUMENTA TEXTO KPIs (excepto periodo) */
     .kpi-title {
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 600;
         margin-bottom: 4px;
     }
 
     .kpi-value {
-        font-size: 13px;
+        font-size: 18px;
+        font-weight: 600;
         line-height: 1.2;
     }
 
@@ -148,7 +150,8 @@ if archivo is not None:
         df["FechaHora"] = pd.to_datetime(df["FechaHora"], dayfirst=True)
 
         df["Valor"] = (
-            df["Valor"].astype(str)
+            df["Valor"]
+            .astype(str)
             .str.replace(",", ".", regex=False)
             .astype(float)
         )
@@ -205,7 +208,7 @@ if archivo is not None:
         rango = f"{fecha_ini.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}"
 
         # =====================================================
-        # KPIs UI (TODOS EN BOXES CONSISTENTES)
+        # KPIs UI
         # =====================================================
 
         st.divider()
@@ -228,49 +231,117 @@ if archivo is not None:
         kpi(c3, "Q prom", f"{q_prom:.2f} lps")
         kpi(c4, "Volumen", f"{volumen:.2f} m³")
         kpi(c5, "MNF", f"{nmf:.2f}" if nmf else "-")
-        kpi(c6, "Periodo", rango)
+
+        # 🔴 PERIOD (NO CAMBIA TAMAÑO)
+        c6.markdown(
+            f"""
+            <div class="kpi-box">
+                <div class="kpi-title">Periodo</div>
+                <div style="font-size:13px; line-height:1.2;">
+                    {rango}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # =====================================================
+        # TABLA RESUMEN (RESTAURADA EXACTA)
+        # =====================================================
+
+        col1, col2 = st.columns([1, 2.3])
+
+        with col1:
+
+            st.subheader("📋 Resumen")
+
+            resumen = pd.DataFrame({
+                "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
+                "Valor": [
+                    f"{p1_prom:.2f}",
+                    f"{p2_prom:.2f}",
+                    f"{q_prom:.2f}",
+                    f"{volumen:.2f}",
+                    f"{nmf:.2f}" if nmf else "-"
+                ],
+                "Unidad": ["bar", "bar", "lps", "m³", "lps"]
+            })
+
+            st.markdown(
+                """
+                <style>
+                .tabla-cea {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-family: 'Akt', sans-serif !important;
+                    font-size: 15px;
+                }
+
+                .tabla-cea th {
+                    background-color: #f2f2f2;
+                    padding: 12px;
+                    text-align: center;
+                    font-weight: 700;
+                }
+
+                .tabla-cea td {
+                    padding: 12px;
+                    text-align: center;
+                    font-weight: 500;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                resumen.to_html(index=False, classes="tabla-cea"),
+                unsafe_allow_html=True
+            )
 
         # =====================================================
         # GRÁFICO
         # =====================================================
 
-        fig = go.Figure()
+        with col2:
 
-        fig.add_trace(go.Scatter(
-            x=q["FechaHora"],
-            y=q["Valor"],
-            mode="lines",
-            name="Q",
-            line=dict(width=2, color="blue")
-        ))
+            fig = go.Figure()
 
-        fig.add_trace(go.Scatter(
-            x=[q["FechaHora"].min(), q["FechaHora"].max()],
-            y=[q_prom, q_prom],
-            mode="lines",
-            name="Q promedio",
-            line=dict(width=2, color="red", dash="dot")
-        ))
-
-        if nmf is not None:
             fig.add_trace(go.Scatter(
-                x=[q["FechaHora"].min(), q["FechaHora"].max()],
-                y=[nmf, nmf],
+                x=q["FechaHora"],
+                y=q["Valor"],
                 mode="lines",
-                name="MNF",
-                line=dict(width=2, color="green", dash="dash")
+                name="Q",
+                line=dict(width=2, color="blue")
             ))
 
-        fig.update_layout(
-            height=420,
-            hovermode="x unified",
-            xaxis=dict(rangeslider=dict(visible=True)),
-            legend=dict(
-                orientation="h",
-                y=1.08,
-                x=0.5,
-                xanchor="center"
-            )
-        )
+            fig.add_trace(go.Scatter(
+                x=[q["FechaHora"].min(), q["FechaHora"].max()],
+                y=[q_prom, q_prom],
+                mode="lines",
+                name="Q promedio",
+                line=dict(width=2, color="red", dash="dot")
+            ))
 
-        st.plotly_chart(fig, use_container_width=True)
+            if nmf is not None:
+                fig.add_trace(go.Scatter(
+                    x=[q["FechaHora"].min(), q["FechaHora"].max()],
+                    y=[nmf, nmf],
+                    mode="lines",
+                    name="MNF",
+                    line=dict(width=2, color="green", dash="dash")
+                ))
+
+            fig.update_layout(
+                height=420,
+                hovermode="x unified",
+                xaxis=dict(rangeslider=dict(visible=True)),
+                legend=dict(
+                    orientation="h",
+                    y=1.08,
+                    x=0.5,
+                    xanchor="center"
+                )
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
