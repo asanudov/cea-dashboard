@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS (AKT FORZADO GLOBAL)
+# ESTILOS
 # =====================================================
 
 st.markdown(
@@ -31,31 +31,31 @@ st.markdown(
         padding-bottom: 0rem !important;
     }
 
-    /* KPI BOX UNIFORME */
     .kpi-box {
         background-color: #f8f9fa;
         border: 1px solid #e6e6e6;
         border-radius: 10px;
         padding: 10px;
-        height: 95px;   /* 🔥 FIX: todos iguales */
+        height: 95px;
         text-align: center;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        font-family: 'Akt', sans-serif !important;
     }
 
     .kpi-title {
         font-size: 14px;
         font-weight: 600;
-        margin-bottom: 4px;
-        font-family: 'Akt', sans-serif !important;
     }
 
     .kpi-value {
         font-size: 18px;
         font-weight: 600;
-        font-family: 'Akt', sans-serif !important;
+    }
+
+    /* 🔥 OCULTAR TEXTO EXTRA DEL UPLOADER */
+    section[data-testid="stFileUploaderDropzoneInstructions"] {
+        display: none !important;
     }
 
     </style>
@@ -64,7 +64,7 @@ st.markdown(
 )
 
 # =====================================================
-# FUNCIONES
+# NORMALIZACIÓN
 # =====================================================
 
 def normalizar(texto):
@@ -104,13 +104,28 @@ with col_logo:
 with col_titulo:
     st.markdown("<h1>Dashboard para Datos de Gestión de Presiones</h1>", unsafe_allow_html=True)
 
+    st.markdown("""
+### Calcula automáticamente:
+
+1. Presión aguas arriba promedio (bar)  
+2. Presión aguas abajo promedio (bar)  
+3. Caudal promedio (lps)  
+4. Volumen total (m³)  
+5. MNF (Minimum Night Flow)  
+
+**Desarrollado por M.I. Alan Sañudo**
+""")
+
 # =====================================================
-# UPLOAD
+# UPLOAD (CAMBIADO CORRECTAMENTE)
 # =====================================================
 
-archivo = st.file_uploader("", type=["xlsx"])
+archivo = st.file_uploader("Cargar archivo", type=["xlsx"])
 
-if archivo is not None and st.button("▶ Ejecutar cálculo"):
+if archivo is None:
+    st.info("Carga un archivo para comenzar.")
+
+if archivo is not None and st.button("▶ Cargar archivo"):
 
     df = pd.read_excel(archivo)
     df.columns = df.columns.str.strip()
@@ -174,7 +189,7 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
     rango = f"{q['FechaHora'].min().strftime('%d/%m/%Y')} - {q['FechaHora'].max().strftime('%d/%m/%Y')}"
 
     # =====================================================
-    # KPIs UI (UNIFORMES)
+    # KPIs UI
     # =====================================================
 
     st.divider()
@@ -226,7 +241,7 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
         )
 
     # =====================================================
-    # GRÁFICO (SLIDER OK)
+    # GRÁFICO
     # =====================================================
 
     with col2:
