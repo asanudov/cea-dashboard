@@ -19,156 +19,77 @@ st.markdown(
     """
     <style>
 
-    /* =====================================================
-       IMPORTAR FONT AKT
-    ===================================================== */
-
     @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
-
-    /* =====================================================
-       FONT GLOBAL
-    ===================================================== */
 
     html, body, [class*="css"]  {
         font-family: 'Akt', sans-serif !important;
     }
-
-    /* =====================================================
-       COMPACTAR DASHBOARD
-    ===================================================== */
 
     .block-container{
         padding-top: 1rem;
         padding-bottom: 0rem;
     }
 
-    /* =====================================================
-       TITULOS
-    ===================================================== */
-
     h1, h2, h3 {
         font-family: 'Akt', sans-serif !important;
         font-weight: 700 !important;
     }
 
-    /* =====================================================
-       BOTONES
-    ===================================================== */
-
     .stButton > button {
-
         font-family: 'Akt', sans-serif !important;
         font-weight: 600 !important;
-
         border-radius: 10px !important;
-
         height: 48px !important;
-
         font-size: 16px !important;
     }
 
-    /* =====================================================
-       FILE UPLOADER
-    ===================================================== */
-
     section[data-testid="stFileUploader"] {
-
         font-family: 'Akt', sans-serif !important;
     }
 
     section[data-testid="stFileUploader"] * {
-
         font-family: 'Akt', sans-serif !important;
     }
 
-    /* =====================================================
-       KPIs
-    ===================================================== */
-
     div[data-testid="stMetric"]{
-
         background-color: #f8f9fa;
-
         padding: 10px;
-
         border-radius: 10px;
-
         border: 1px solid #e6e6e6;
-
         font-family: 'Akt', sans-serif !important;
     }
 
     div[data-testid="stMetric"] * {
-
         font-family: 'Akt', sans-serif !important;
     }
 
-    /* =====================================================
-       TABLA CUSTOM
-    ===================================================== */
-
     .tabla-cea {
-
         width: 100%;
-
         border-collapse: collapse;
-
         font-family: 'Akt', sans-serif !important;
-
         font-size: 15px;
-
         border-radius: 10px;
-
         overflow: hidden;
     }
 
     .tabla-cea thead th {
-
         background-color: #f2f2f2;
-
-        color: #111111;
-
-        font-family: 'Akt', sans-serif !important;
-
+        color: #111;
         font-weight: 700 !important;
-
         padding: 12px;
-
         text-align: center;
-
         border-bottom: 1px solid #dddddd;
     }
 
     .tabla-cea tbody td {
-
-        font-family: 'Akt', sans-serif !important;
-
         font-weight: 500 !important;
-
         padding: 12px;
-
         text-align: center;
-
         border-bottom: 1px solid #eeeeee;
     }
 
     .tabla-cea tbody tr:hover {
-
         background-color: #fafafa;
-    }
-
-    /* =====================================================
-       MENSAJE MNF
-    ===================================================== */
-
-    div[data-testid="stAlert"] {
-
-        font-family: 'Akt', sans-serif !important;
-    }
-
-    div[data-testid="stAlert"] * {
-
-        font-family: 'Akt', sans-serif !important;
     }
 
     </style>
@@ -180,58 +101,25 @@ st.markdown(
 # HEADER
 # =====================================================
 
-col_logo, col_titulo = st.columns([0.7,4.3])
+col_logo, col_titulo = st.columns([0.7, 4.3])
 
 with col_logo:
-
-    st.markdown(
-        "<div style='padding-top:25px;'></div>",
-        unsafe_allow_html=True
-    )
-
-    st.image(
-        "logo.png",
-        width=110
-    )
+    st.image("logo.png", width=110)
 
 with col_titulo:
-
-    st.markdown(
-        """
-        <h1 style='margin-bottom:0px;'>
-        Dashboard para Datos de Gestión de Presiones
-        </h1>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        """
-        <h3 style='margin-top:0px; color:#444444;'>
-        Desarrollado por M.I. Alan Sañudo
-        </h3>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown("<h1 style='margin-bottom:0px;'>Dashboard para Datos de Gestión de Presiones</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-top:0px; color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>", unsafe_allow_html=True)
 
 # =====================================================
-# CARGAR ARCHIVO
+# UPLOAD
 # =====================================================
 
-archivo = st.file_uploader(
-    "📂 Subir archivo Excel",
-    type=["xlsx"]
-)
-
-# =====================================================
-# MENSAJE INICIAL
-# =====================================================
+archivo = st.file_uploader("📂 Subir archivo Excel", type=["xlsx"])
 
 if archivo is None:
 
     st.markdown("""
     ### Calcula automáticamente:
-    
     - Presión aguas arriba promedio (bar)
     - Presión aguas abajo promedio (bar)
     - Caudal promedio (lps)
@@ -256,16 +144,7 @@ if archivo is not None:
         # =====================================================
 
         df = pd.read_excel(archivo)
-
-        # =====================================================
-        # LIMPIAR COLUMNAS
-        # =====================================================
-
         df.columns = df.columns.str.strip()
-
-        # =====================================================
-        # RENOMBRAR
-        # =====================================================
 
         df = df.rename(columns={
             "Data Logger": "Variable",
@@ -273,18 +152,7 @@ if archivo is not None:
             "Media": "Valor"
         })
 
-        # =====================================================
-        # FECHA
-        # =====================================================
-
-        df["FechaHora"] = pd.to_datetime(
-            df["FechaHora"],
-            dayfirst=True
-        )
-
-        # =====================================================
-        # NUMÉRICOS
-        # =====================================================
+        df["FechaHora"] = pd.to_datetime(df["FechaHora"], dayfirst=True)
 
         df["Valor"] = (
             df["Valor"]
@@ -292,10 +160,6 @@ if archivo is not None:
             .str.replace(",", ".", regex=False)
             .astype(float)
         )
-
-        # =====================================================
-        # ORDEN
-        # =====================================================
 
         df = df.sort_values("FechaHora")
 
@@ -316,36 +180,34 @@ if archivo is not None:
         q_promedio = q["Valor"].mean()
 
         # =====================================================
-        # DELTA T
-        # =====================================================
-
-        q["Delta_t_s"] = (
-            q["FechaHora"]
-            .diff()
-            .dt.total_seconds()
-        )
-
-        q["Delta_t_s"] = q["Delta_t_s"].fillna(0)
-
-        # =====================================================
         # VOLUMEN
         # =====================================================
 
-        q["Volumen_m3"] = (
-            q["Valor"] * q["Delta_t_s"]
-        ) / 1000
-
+        q["Delta_t_s"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
+        q["Volumen_m3"] = (q["Valor"] * q["Delta_t_s"]) / 1000
         volumen_total = q["Volumen_m3"].sum()
+
+        # =====================================================
+        # 🔥 NUEVO: EXCLUIR DÍAS CON 0.00 ENTRE 1–4 AM
+        # =====================================================
+
+        q["Fecha"] = q["FechaHora"].dt.date
+        q["Hora"] = q["FechaHora"].dt.hour
+
+        dias_invalidos = q[
+            (q["Hora"].between(1, 3)) &
+            (q["Valor"] == 0)
+        ]["Fecha"].unique()
+
+        q_mnf = q[~q["Fecha"].isin(dias_invalidos)].copy()
 
         # =====================================================
         # MNF
         # =====================================================
 
-        q["Hora"] = q["FechaHora"].dt.hour
-
-        q_noche = q[
-            (q["Hora"] >= 2) &
-            (q["Hora"] < 4)
+        q_noche = q_mnf[
+            (q_mnf["Hora"] >= 2) &
+            (q_mnf["Hora"] < 4)
         ].copy()
 
         if not q_noche.empty:
@@ -353,34 +215,23 @@ if archivo is not None:
             q_noche = q_noche.sort_values("FechaHora")
 
             intervalo_min = (
-                q_noche["FechaHora"]
-                .diff()
-                .dt.total_seconds()
-                .median()
+                q_noche["FechaHora"].diff().dt.total_seconds().median()
             ) / 60
 
-            muestras_60min = max(
-                1,
-                int(60 / intervalo_min)
-            )
+            muestras_60min = max(1, int(60 / intervalo_min))
 
             q_noche["Rolling_MNF"] = (
                 q_noche["Valor"]
-                .rolling(
-                    window=muestras_60min,
-                    min_periods=1
-                )
+                .rolling(window=muestras_60min, min_periods=1)
                 .mean()
             )
 
             idx_nmf = q_noche["Rolling_MNF"].idxmin()
 
             nmf = q_noche.loc[idx_nmf, "Rolling_MNF"]
-
             hora_nmf = q_noche.loc[idx_nmf, "FechaHora"]
 
         else:
-
             nmf = None
             hora_nmf = None
 
@@ -392,49 +243,25 @@ if archivo is not None:
 
         col1, col2, col3, col4, col5 = st.columns(5)
 
-        col1.metric(
-            "P. aguas arriba",
-            f"{p1_promedio:.2f} bar"
-        )
-
-        col2.metric(
-            "P. aguas abajo",
-            f"{p2_promedio:.2f} bar"
-        )
-
-        col3.metric(
-            "Q promedio",
-            f"{q_promedio:.2f} lps"
-        )
-
-        col4.metric(
-            "Volumen total",
-            f"{volumen_total:.2f} m³"
-        )
+        col1.metric("P. aguas arriba", f"{p1_promedio:.2f} bar")
+        col2.metric("P. aguas abajo", f"{p2_promedio:.2f} bar")
+        col3.metric("Q promedio", f"{q_promedio:.2f} lps")
+        col4.metric("Volumen total", f"{volumen_total:.2f} m³")
 
         if nmf is not None:
-
-            col5.metric(
-                "MNF",
-                f"{nmf:.2f} lps"
-            )
+            col5.metric("MNF", f"{nmf:.2f} lps")
 
         # =====================================================
-        # LAYOUT
+        # RESUMEN TABLA
         # =====================================================
 
         col_izq, col_der = st.columns([1, 2.3])
-
-        # =====================================================
-        # TABLA
-        # =====================================================
 
         with col_izq:
 
             st.subheader("📋 Resumen")
 
             resultado = pd.DataFrame({
-
                 "Indicador": [
                     "P. aguas arriba",
                     "P. aguas abajo",
@@ -442,7 +269,6 @@ if archivo is not None:
                     "Volumen total",
                     "MNF"
                 ],
-
                 "Valor": [
                     f"{p1_promedio:.2f}",
                     f"{p2_promedio:.2f}",
@@ -450,7 +276,6 @@ if archivo is not None:
                     f"{volumen_total:.2f}",
                     f"{nmf:.2f}" if nmf is not None else "-"
                 ],
-
                 "Unidad": [
                     "bar",
                     "bar",
@@ -460,18 +285,12 @@ if archivo is not None:
                 ]
             })
 
-            tabla_html = resultado.to_html(
-                index=False,
-                classes="tabla-cea"
-            )
-
             st.markdown(
-                tabla_html,
+                resultado.to_html(index=False, classes="tabla-cea"),
                 unsafe_allow_html=True
             )
 
             if hora_nmf is not None:
-
                 st.success(
                     f"""
                     🌙 MNF detectado
@@ -494,114 +313,46 @@ if archivo is not None:
 
             fig = go.Figure()
 
-            # =====================================================
-            # CAUDAL
-            # =====================================================
+            fig.add_trace(go.Scatter(
+                x=q["FechaHora"],
+                y=q["Valor"],
+                mode="lines",
+                name="Caudal en lps",
+                line=dict(width=2, color="blue")
+            ))
 
-            fig.add_trace(
-
-                go.Scatter(
-                    x=q["FechaHora"],
-                    y=q["Valor"],
-                    mode="lines",
-                    name="Caudal en lps",
-                    line=dict(
-                        width=2,
-                        color="blue"
-                    )
-                )
-            )
-
-            # =====================================================
-            # CAUDAL PROMEDIO
-            # =====================================================
-
-            fig.add_trace(
-
-                go.Scatter(
-                    x=[q["FechaHora"].min(), q["FechaHora"].max()],
-                    y=[q_promedio, q_promedio],
-                    mode="lines",
-                    name="Caudal promedio",
-                    line=dict(
-                        width=2,
-                        color="red",
-                        dash="dot"
-                    )
-                )
-            )
-
-            # =====================================================
-            # MNF
-            # =====================================================
+            fig.add_trace(go.Scatter(
+                x=[q["FechaHora"].min(), q["FechaHora"].max()],
+                y=[q_promedio, q_promedio],
+                mode="lines",
+                name="Caudal promedio",
+                line=dict(width=2, color="red", dash="dot")
+            ))
 
             if nmf is not None:
-
-                fig.add_trace(
-
-                    go.Scatter(
-                        x=[q["FechaHora"].min(), q["FechaHora"].max()],
-                        y=[nmf, nmf],
-                        mode="lines",
-                        name="MNF",
-                        line=dict(
-                            width=2,
-                            color="green",
-                            dash="dash"
-                        )
-                    )
-                )
-
-            # =====================================================
-            # LIMITES Y
-            # =====================================================
+                fig.add_trace(go.Scatter(
+                    x=[q["FechaHora"].min(), q["FechaHora"].max()],
+                    y=[nmf, nmf],
+                    mode="lines",
+                    name="MNF",
+                    line=dict(width=2, color="green", dash="dash")
+                ))
 
             y_min = q["Valor"].min() * 0.9
             y_max = q["Valor"].max() * 1.1
 
-            # =====================================================
-            # LAYOUT FIGURA
-            # =====================================================
-
             fig.update_layout(
-
                 height=470,
-
-                margin=dict(
-                    l=10,
-                    r=10,
-                    t=40,
-                    b=10
-                ),
-
+                margin=dict(l=10, r=10, t=40, b=10),
                 xaxis_title="Fecha y hora",
                 yaxis_title="Caudal (lps)",
-
                 hovermode="x unified",
-
-                xaxis=dict(
-                    rangeslider=dict(visible=True),
-                    fixedrange=False
-                ),
-
-                yaxis=dict(
-                    fixedrange=True,
-                    range=[y_min, y_max]
-                ),
-
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
-                    xanchor="right",
-                    x=1
-                )
+                xaxis=dict(rangeslider=dict(visible=True)),
+                yaxis=dict(range=[y_min, y_max], fixedrange=True),
+                legend=dict(orientation="h", y=1.02, x=1)
             )
 
-            st.plotly_chart(
-                fig,
-                use_container_width=True
-            )
+            st.plotly_chart(fig, use_container_width=True)
 
         # =====================================================
         # DESCARGA
