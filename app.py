@@ -60,6 +60,18 @@ h3, .section-subtitle {
     font-weight: 600 !important;
 }
 
+/* Alerta de interrupción */
+.alerta-suministro {
+    background-color: #FFEAEA;
+    color: #CC0000;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    border: 1px solid #FFAAAA;
+}
+
 /* Sustituto compacto para st.divider() */
 .compact-divider {
     border-top: 1px solid #e6e6e6;
@@ -173,7 +185,7 @@ if archivo is None:
     st.info("Carga un archivo desde el panel izquierdo y presiona 'Ejecutar cálculo'.")
 
 if archivo is not None and ejecutar_calculo:
-    # 1. Procesamiento e independización de Series (Evita desalineaciones de tiempo)
+    # 1. Procesamiento e independización de Series
     df_raw = pd.read_excel(archivo)
     df_raw.columns = df_raw.columns.str.strip()
     df_raw = df_raw.rename(columns={"Data Logger": "Variable", "Fecha y hora": "FechaHora", "Media": "Valor"})
@@ -181,26 +193,27 @@ if archivo is not None and ejecutar_calculo:
     df_raw["Valor"] = df_raw["Valor"].astype(str).str.replace(",", ".", regex=False).astype(float)
     df_raw["Tipo"] = df_raw["Variable"].apply(clasificar_variable)
     
-    # Extraer dataframes limpios y aislados por variable
+    # Extraer dataframes independientes por variable
     p1 = df_raw[df_raw["Tipo"] == "P1"].sort_values("FechaHora").copy()
     p2 = df_raw[df_raw["Tipo"] == "P2"].sort_values("FechaHora").copy()
     q = df_raw[df_raw["Tipo"] == "Q"].sort_values("FechaHora").copy()
 
-    # 2. Identificación de Problemas en el Suministro Externo (Cortes ajenos al DMA)
-    # Se detectan los días específicos en los que P1 se cae a cero (< 0.15 bar)
-    fechas_falla_p1 = p1[p1["Valor"] < 0.15]["FechaHora"].dt.date.unique()
+    # 2. Identificación de Problemas en el Suministro Externo (Corte de red)
+    # Convertimos explícitamente a formato string 'YYYY-MM-DD' para asegurar un cruce de fechas perfecto
+    fechas_falla_p1 = set(p1[p1["Valor"] < 0.15]["FechaHora"].dt.strftime('%Y-%m-%d').unique())
+    hay_interrupcion = len(fechas_falla_p1) > 0
 
     # 3. Cálculos Generales de Indicadores (KPIs)
     p1_prom = p1["Valor"].mean() if not p1.empty else 0.0
     p2_prom = p2["Valor"].mean() if not p2.empty else 0.0
     
-    # Lógica de Tandeo existente (Si el caudal pasa en cero más del 40% de la muestra total)
+    # Regla de Tandeo existente (Si el caudal pasa en cero más del 40% de toda la muestra)
     es_tandeo = (q["Valor"] == 0).mean() > 0.4 if not q.empty else False
     
     if es_tandeo:
         q_prom = q["Valor"].mean() if not q.empty else 0.0
     else:
-        # Suministro continuo: Ignora los ceros de consumo comunes para no sesgar el promedio
+        # Suministro continuo: Ignora los ceros lógicos de consumo para el promedio
         q_prom = q[q["Valor"] > 0]["Valor"].mean() if not q.empty else 0.0
 
     # Cálculo preciso del Volumen Integrado
@@ -213,20 +226,20 @@ if archivo is not None and ejecutar_calculo:
         volumen = 0.0
         f_min = f_max = "-/-/-"
 
-    # 4. Cálculo Inteligente de MNF discriminando Fallas de Suministro
+    # 4. Cálculo Inteligente de MNF descartando días con caídas de suministro
     nmf = None
     if not q.empty:
         q_mnf = q.copy()
         
-        # Filtro primario por Horario Nocturno Estándar (2:00 AM a 4:00 AM)
+        # Filtro de Horario Nocturno Estándar (2:00 AM a 4:00 AM)
         q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)].copy()
         
-        # Discriminación Estratégica: Si NO es un sistema por tandeo, descartamos los días 
-        # con problemas en el suministro detectados a través de P1 para que no alteren el MNF real.
-        if not es_tandeo and len(fechas_falla_p1) > 0:
-            q_noche = q_noche[~q_noche["FechaHora"].dt.date.isin(fechas_falla_p1)]
+        # Discriminación Definitiva por tipo de corte:
+        if not es_tandeo and hay_interrupcion:
+            # Quitamos los días afectados convirtiendo la fecha actual a string para validar el set
+            q_noche = q_noche[~q_noche["FechaHora"].dt.strftime('%Y-%m-%d').isin(fechas_falla_p1)]
             
-        # Si después de limpiar los días caídos queda muestra, calculamos el MNF mínimo real
+        # Si quedan datos válidos fuera de la interrupción, se extrae el MNF mínimo real
         if not q_noche.empty:
             nmf = q_noche["Valor"].min()
 
@@ -234,6 +247,10 @@ if archivo is not None and ejecutar_calculo:
     # INDICADORES DEL SECTOR
     # =====================================================
     st.markdown("### Indicadores del Sector")
+    
+    # Despliegue del aviso de alerta si se detecta interrupción externa
+    if hay_interrupcion:
+        st.markdown('<div class="alerta-suministro">⚠️ Detección de interrupción en el suministro</div>', unsafe_allow_html=True)
     
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     
@@ -270,14 +287,14 @@ if archivo is not None and ejecutar_calculo:
     with col_grafico:
         fig = go.Figure()
         
-        # Despliegue seguro de la curva de caudal independiente
+        # Despliegue de la curva de caudal limpia
         if not q.empty:
             fig.add_trace(go.Scatter(x=q["FechaHora"], y=q["Valor"], mode="lines", name="Q", line=dict(width=2, color="blue")))
             
             # Línea de Caudal Promedio
             fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[q_prom, q_prom], mode="lines", name="Q prom", line=dict(width=1.5, color="red", dash="dot")))
             
-            # Línea de MNF (Si se calculó exitosamente)
+            # Línea de MNF real calculado excluyendo las anomalías
             if nmf is not None:
                 fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF", line=dict(width=2, color="green", dash="dash")))
 
