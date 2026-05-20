@@ -53,7 +53,7 @@ st.markdown(
         font-weight: 600;
     }
 
-    /* 🔥 OCULTAR TEXTO EXTRA DEL UPLOADER */
+    /* OCULTAR TEXTO EXTRA DEL UPLOADER */
     section[data-testid="stFileUploaderDropzoneInstructions"] {
         display: none !important;
     }
@@ -117,7 +117,7 @@ with col_titulo:
 """)
 
 # =====================================================
-# UPLOAD (CAMBIADO CORRECTAMENTE)
+# UPLOAD
 # =====================================================
 
 archivo = st.file_uploader("Cargar archivo", type=["xlsx"])
@@ -139,7 +139,8 @@ if archivo is not None and st.button("▶ Cargar archivo"):
     df["FechaHora"] = pd.to_datetime(df["FechaHora"], dayfirst=True)
 
     df["Valor"] = (
-        df["Valor"].astype(str)
+        df["Valor"]
+        .astype(str)
         .str.replace(",", ".", regex=False)
         .astype(float)
     )
@@ -171,15 +172,34 @@ if archivo is not None and st.button("▶ Cargar archivo"):
     volumen = (q["Valor"] * q["Delta_t"] / 1000).sum()
 
     # =====================================================
-    # MNF
+    # MNF (FIX REAL)
     # =====================================================
 
     q_mnf = q.copy()
-    q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
-    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].replace(0, pd.NA)
-    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(limit=2).ffill().bfill()
 
-    q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)]
+    # 🔥 FIX: asegurar numérico REAL antes de interpolar
+    q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
+
+    # eliminar ceros (si son tandeo o cierre)
+    q_mnf.loc[q_mnf["Valor_mnf"] == 0, "Valor_mnf"] = pd.NA
+
+    # forzar float (CRÍTICO para evitar object dtype)
+    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].astype("float64")
+
+    # interpolación segura
+    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(
+        limit=2,
+        limit_direction="both"
+    )
+
+    # relleno final
+    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].ffill().bfill()
+
+    q_noche = q_mnf[
+        (q_mnf["FechaHora"].dt.hour >= 2) &
+        (q_mnf["FechaHora"].dt.hour < 4)
+    ]
+
     nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
 
     # =====================================================
@@ -215,12 +235,13 @@ if archivo is not None and st.button("▶ Cargar archivo"):
     kpi(c6, "Periodo", rango)
 
     # =====================================================
-    # TABLA (SIN CAMBIOS)
+    # TABLA
     # =====================================================
 
     col1, col2 = st.columns([1, 2.3])
 
     with col1:
+
         st.subheader("📋 Resumen")
 
         resumen = pd.DataFrame({
