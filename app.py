@@ -198,10 +198,20 @@ if archivo is not None and ejecutar_calculo:
     p2 = df_raw[df_raw["Tipo"] == "P2"].sort_values("FechaHora").copy()
     q = df_raw[df_raw["Tipo"] == "Q"].sort_values("FechaHora").copy()
 
-    # 2. Identificación de Problemas en el Suministro Externo (Corte de red)
-    # Convertimos explícitamente a formato string 'YYYY-MM-DD' para asegurar un cruce de fechas perfecto
-    fechas_falla_p1 = set(p1[p1["Valor"] < 0.15]["FechaHora"].dt.strftime('%Y-%m-%d').unique())
-    hay_interrupcion = len(fechas_falla_p1) > 0
+    # 2. Identificación Inteligente de Interrupción en Suministro Externo
+    # Un día califica con falla estructural si P1 es < 0.15 bar en más del 15% de las lecturas de ese día
+    hay_interrupcion = False
+    fechas_falla_p1 = set()
+    
+    if not p1.empty:
+        p1["SoloFecha"] = p1["FechaHora"].dt.strftime('%Y-%m-%d')
+        p1["EsBaja"] = p1["Valor"] < 0.15
+        
+        # Agrupar por día y calcular el porcentaje de tiempo en cero/baja presión
+        resumen_diario_p1 = p1.groupby("SoloFecha")["EsBaja"].mean()
+        # Filtrar los días que tienen caídas severas prolongadas (más del 15% del día)
+        fechas_falla_p1 = set(resumen_diario_p1[resumen_diario_p1 > 0.15].index)
+        hay_interrupcion = len(fechas_falla_p1) > 0
 
     # 3. Cálculos Generales de Indicadores (KPIs)
     p1_prom = p1["Valor"].mean() if not p1.empty else 0.0
@@ -213,8 +223,11 @@ if archivo is not None and ejecutar_calculo:
     if es_tandeo:
         q_prom = q["Valor"].mean() if not q.empty else 0.0
     else:
-        # Suministro continuo: Ignora los ceros lógicos de consumo para el promedio
-        q_prom = q[q["Valor"] > 0]["Valor"].mean() if not q.empty else 0.0
+        # Suministro continuo: Filtra ceros e interrupciones prolongadas para el promedio
+        q_valido_prom = q.copy()
+        if hay_interrupcion:
+            q_valido_prom = q_valido_prom[~q_valido_prom["FechaHora"].dt.strftime('%Y-%m-%d').isin(fechas_falla_p1)]
+        q_prom = q_valido_prom[q_valido_prom["Valor"] > 0.1]["Valor"].mean() if not q_valido_prom.empty else 0.0
 
     # Cálculo preciso del Volumen Integrado
     if not q.empty:
@@ -226,20 +239,24 @@ if archivo is not None and ejecutar_calculo:
         volumen = 0.0
         f_min = f_max = "-/-/-"
 
-    # 4. Cálculo Inteligente de MNF descartando días con caídas de suministro
+    # 4. Cálculo de MNF Real Excluyendo Horas de Falla de Suministro
     nmf = None
     if not q.empty:
         q_mnf = q.copy()
+        q_mnf["SoloFecha"] = q_mnf["FechaHora"].dt.strftime('%Y-%m-%d')
         
-        # Filtro de Horario Nocturno Estándar (2:00 AM a 4:00 AM)
+        # Si NO es tandeo y se identifican caídas severas externas, removemos esos días completos
+        if not es_tandeo and hay_interrupcion:
+            q_mnf = q_mnf[~q_mnf["SoloFecha"].isin(fechas_falla_p1)]
+            
+        # Filtro estricto del horario nocturno establecido (2:00 AM a 4:00 AM)
         q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)].copy()
         
-        # Discriminación Definitiva por tipo de corte:
-        if not es_tandeo and hay_interrupcion:
-            # Quitamos los días afectados convirtiendo la fecha actual a string para validar el set
-            q_noche = q_noche[~q_noche["FechaHora"].dt.strftime('%Y-%m-%d').isin(fechas_falla_p1)]
+        # Adicionalmente, removemos cualquier valor remanente que marque <= 0.05 lps sólo si no es un tandeo
+        if not es_tandeo:
+            q_noche = q_noche[q_noche["Valor"] > 0.05]
             
-        # Si quedan datos válidos fuera de la interrupción, se extrae el MNF mínimo real
+        # Se obtiene el mínimo real de la muestra limpia restante
         if not q_noche.empty:
             nmf = q_noche["Valor"].min()
 
@@ -248,7 +265,7 @@ if archivo is not None and ejecutar_calculo:
     # =====================================================
     st.markdown("### Indicadores del Sector")
     
-    # Despliegue del aviso de alerta si se detecta interrupción externa
+    # Despliegue dinámico del aviso de alerta por corte/falla externa
     if hay_interrupcion:
         st.markdown('<div class="alerta-suministro">⚠️ Detección de interrupción en el suministro</div>', unsafe_allow_html=True)
     
@@ -287,14 +304,14 @@ if archivo is not None and ejecutar_calculo:
     with col_grafico:
         fig = go.Figure()
         
-        # Despliegue de la curva de caudal limpia
+        # Graficado seguro de la curva de caudal
         if not q.empty:
             fig.add_trace(go.Scatter(x=q["FechaHora"], y=q["Valor"], mode="lines", name="Q", line=dict(width=2, color="blue")))
             
             # Línea de Caudal Promedio
             fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[q_prom, q_prom], mode="lines", name="Q prom", line=dict(width=1.5, color="red", dash="dot")))
             
-            # Línea de MNF real calculado excluyendo las anomalías
+            # Línea de MNF real libre de contaminantes o anomalías externas
             if nmf is not None:
                 fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF", line=dict(width=2, color="green", dash="dash")))
 
