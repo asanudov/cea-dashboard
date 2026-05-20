@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# NORMALIZACIÓN
+# NORMALIZACIÓN Y CLASIFICACIÓN
 # =====================================================
 
 def normalizar(texto):
@@ -30,27 +30,114 @@ def normalizar(texto):
 def clasificar_variable(var):
     v = normalizar(var)
 
+    # --------------------
     # PRESIÓN 1
-    if "p1" in v or "presion 1" in v:
+    # --------------------
+    if (
+        "p1" in v or
+        "presion 1" in v or
+        "presión 1" in v
+    ):
         return "P1"
 
+    # --------------------
     # PRESIÓN 2
-    if "p2" in v or "presion 2" in v:
+    # --------------------
+    if (
+        "p2" in v or
+        "presion 2" in v or
+        "presión 2" in v
+    ):
         return "P2"
 
+    # --------------------
     # CAUDAL
-    if "q" == v or "caudal" in v or "lps" in v and "q" in v:
+    # --------------------
+    if (
+        v == "q" or
+        "caudal" in v or
+        "q (lps)" in v or
+        ("q" in v and "lps" in v)
+    ):
         return "Q"
 
     return None
 
 # =====================================================
-# HEADER (igual que tu versión original)
+# ESTILOS (IGUAL)
 # =====================================================
 
-col_logo, col_titulo = st.columns([0.7, 4.3])
+st.markdown(
+    """
+    <style>
+
+    @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Akt', sans-serif !important;
+    }
+
+    .block-container{
+        padding-top: 1rem;
+        padding-bottom: 0rem;
+    }
+
+    h1, h2, h3 {
+        font-family: 'Akt', sans-serif !important;
+        font-weight: 700 !important;
+    }
+
+    .stButton > button {
+        font-family: 'Akt', sans-serif !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        height: 48px !important;
+        font-size: 16px !important;
+    }
+
+    div[data-testid="stMetric"]{
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid #e6e6e6;
+        font-family: 'Akt', sans-serif !important;
+    }
+
+    .tabla-cea {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: 'Akt', sans-serif !important;
+        font-size: 15px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .tabla-cea thead th {
+        background-color: #f2f2f2;
+        color: #111;
+        font-weight: 700;
+        padding: 12px;
+        text-align: center;
+    }
+
+    .tabla-cea tbody td {
+        padding: 12px;
+        text-align: center;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# =====================================================
+# HEADER
+# =====================================================
+
+col_logo, col_titulo = st.columns([0.7,4.3])
 
 with col_logo:
+    st.markdown("<div style='padding-top:25px;'></div>", unsafe_allow_html=True)
     st.image("logo.png", width=110)
 
 with col_titulo:
@@ -64,7 +151,7 @@ with col_titulo:
 archivo = st.file_uploader("📂 Subir archivo Excel", type=["xlsx"])
 
 if archivo is None:
-    st.info("Carga un archivo para comenzar.")
+    st.info("⬆️ Carga un archivo para comenzar.")
 
 if archivo is not None:
 
@@ -95,10 +182,11 @@ if archivo is not None:
         )
 
         # =====================================================
-        # CLASIFICAR VARIABLES
+        # CLASIFICAR VARIABLES (MEJORADO)
         # =====================================================
 
         df["Tipo"] = df["Variable"].apply(clasificar_variable)
+
         df = df[df["Tipo"].notnull()].copy()
         df = df.sort_values("FechaHora")
 
@@ -123,16 +211,15 @@ if archivo is not None:
         volumen_total = q["Volumen_m3"].sum()
 
         # =====================================================
-        # DETECCIÓN DE TANDEO
+        # DETECCIÓN DE TANDEO (SOLO MNF)
         # =====================================================
 
-        q = q.sort_values("FechaHora")
-        q["Fecha"] = q["FechaHora"].dt.date
-
-        porcentaje_cero = (q["Valor"] == 0).mean()
+        q["Hora"] = q["FechaHora"].dt.hour
 
         q["is_zero"] = q["Valor"] == 0
         q["block"] = (q["is_zero"] != q["is_zero"].shift()).cumsum()
+
+        porcentaje_cero = q["is_zero"].mean()
 
         bloques = q[q["is_zero"]].groupby("block")["FechaHora"].agg(
             lambda x: (x.max() - x.min()).total_seconds() / 3600
@@ -143,28 +230,21 @@ if archivo is not None:
         es_tandeo = (porcentaje_cero > 0.4) or (max_bloque_cero >= 6)
 
         # =====================================================
-        # Q PROMEDIO (SIN ROMPER TU LÓGICA)
-        # =====================================================
-
-        if es_tandeo:
-            q_promedio = q[q["Valor"] > 0]["Valor"].mean()
-        else:
-            q_promedio = q["Valor"].mean()
-
-        # =====================================================
         # MNF
         # =====================================================
 
         if es_tandeo:
+
             nmf = None
             hora_nmf = None
-            st.warning("⚠️ Tandeo detectado: MNF desactivado")
+            st.warning("⚠️ Tandeo detectado → MNF desactivado")
 
         else:
 
-            q["Hora"] = q["FechaHora"].dt.hour
-
-            q_noche = q[(q["Hora"] >= 2) & (q["Hora"] < 4)].copy()
+            q_noche = q[
+                (q["Hora"] >= 2) &
+                (q["Hora"] < 4)
+            ].copy()
 
             if not q_noche.empty:
 
@@ -205,54 +285,82 @@ if archivo is not None:
             col5.metric("MNF", f"{nmf:.2f} lps")
 
         # =====================================================
-        # GRÁFICA (RESTAURADA EXACTA)
+        # TABLA
         # =====================================================
 
-        fig = go.Figure()
+        col_izq, col_der = st.columns([1,2.3])
 
-        # CAUDAL
-        fig.add_trace(
-            go.Scatter(
+        with col_izq:
+
+            st.subheader("📋 Resumen")
+
+            resultado = pd.DataFrame({
+                "Indicador": [
+                    "P. aguas arriba",
+                    "P. aguas abajo",
+                    "Q promedio",
+                    "Volumen total",
+                    "MNF"
+                ],
+                "Valor": [
+                    f"{p1_promedio:.2f}",
+                    f"{p2_promedio:.2f}",
+                    f"{q_promedio:.2f}",
+                    f"{volumen_total:.2f}",
+                    f"{nmf:.2f}" if nmf is not None else "-"
+                ],
+                "Unidad": ["bar","bar","lps","m³","lps"]
+            })
+
+            st.markdown(
+                resultado.to_html(index=False, classes="tabla-cea"),
+                unsafe_allow_html=True
+            )
+
+        # =====================================================
+        # GRÁFICA (INTACTA)
+        # =====================================================
+
+        with col_der:
+
+            st.subheader("📉 Serie temporal de caudal")
+
+            fig = go.Figure()
+
+            fig.add_trace(go.Scatter(
                 x=q["FechaHora"],
                 y=q["Valor"],
                 mode="lines",
                 name="Caudal en lps",
                 line=dict(width=2, color="blue")
-            )
-        )
+            ))
 
-        # PROMEDIO (RESTAURADO)
-        fig.add_trace(
-            go.Scatter(
+            fig.add_trace(go.Scatter(
                 x=[q["FechaHora"].min(), q["FechaHora"].max()],
                 y=[q_promedio, q_promedio],
                 mode="lines",
                 name="Caudal promedio",
                 line=dict(width=2, color="red", dash="dot")
-            )
-        )
+            ))
 
-        # MNF
-        if nmf is not None:
-            fig.add_trace(
-                go.Scatter(
+            if nmf is not None:
+                fig.add_trace(go.Scatter(
                     x=[q["FechaHora"].min(), q["FechaHora"].max()],
                     y=[nmf, nmf],
                     mode="lines",
                     name="MNF",
                     line=dict(width=2, color="green", dash="dash")
-                )
+                ))
+
+            fig.update_layout(
+                height=470,
+                hovermode="x unified",
+                xaxis=dict(rangeslider=dict(visible=True)),
+                yaxis=dict(range=[q["Valor"].min()*0.9, q["Valor"].max()*1.1]),
+                legend=dict(orientation="h", y=1.02, x=1)
             )
 
-        fig.update_layout(
-            height=470,
-            hovermode="x unified",
-            xaxis=dict(rangeslider=dict(visible=True)),
-            yaxis=dict(range=[q["Valor"].min()*0.9, q["Valor"].max()*1.1]),
-            legend=dict(orientation="h", y=1.02, x=1)
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
 
         # =====================================================
         # DESCARGA
@@ -260,16 +368,7 @@ if archivo is not None:
 
         st.download_button(
             "📥 Descargar resumen",
-            pd.DataFrame({
-                "Indicador": ["P1", "P2", "Q prom", "Volumen", "MNF"],
-                "Valor": [
-                    p1_promedio,
-                    p2_promedio,
-                    q_promedio,
-                    volumen_total,
-                    nmf if nmf is not None else None
-                ]
-            }).to_csv(index=False).encode("utf-8"),
-            "resumen.csv",
+            resultado.to_csv(index=False).encode("utf-8"),
+            "Resumen_Dashboard_CEA.csv",
             "text/csv"
         )
