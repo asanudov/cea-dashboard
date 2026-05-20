@@ -246,10 +246,10 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
 
     q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].ffill().bfill()
 
-    q_noche = q_mnf(
-        (q_mnf["FechaHora"].dt.hour >= 2) &
-        (q_mnf["FechaHora"].dt.hour < 4)
-    )
+    q_noche = q_mnf[
+    (q_mnf["FechaHora"].dt.hour >= 2) &
+    (q_mnf["FechaHora"].dt.hour < 4)
+    ]
 
     nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
 
