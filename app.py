@@ -60,7 +60,7 @@ h3, .section-subtitle {
     font-weight: 600 !important;
 }
 
-/* Alerta de interrupción */
+/* Alertas de Suministro */
 .alerta-suministro {
     background-color: #FFEAEA;
     color: #CC0000;
@@ -70,6 +70,17 @@ h3, .section-subtitle {
     font-weight: 600;
     margin-bottom: 10px;
     border: 1px solid #FFAAAA;
+}
+
+.alerta-tandeo {
+    background-color: #EAF2FF;
+    color: #0044CC;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    border: 1px solid #AABFFF;
 }
 
 /* Sustituto compacto para st.divider() */
@@ -198,18 +209,20 @@ if archivo is not None and ejecutar_calculo:
     p2 = df_raw[df_raw["Tipo"] == "P2"].sort_values("FechaHora").copy()
     q = df_raw[df_raw["Tipo"] == "Q"].sort_values("FechaHora").copy()
 
-    # 2. Identificación Inteligente de Interrupción en Suministro Externo
-    # Un día califica con falla estructural si P1 es < 0.15 bar en más del 15% de las lecturas de ese día
+    # 2. Análisis y Diagnóstico Dinámico del Tipo de Suministro
+    es_tandeo = False
     hay_interrupcion = False
     fechas_falla_p1 = set()
-    
-    if not p1.empty:
+
+    if not q.empty:
+        # Si el caudal pasa cerrado o en cero relativo (< 0.15 lps) más del 35% del tiempo total de la muestra -> TANDEO STRUCTURAL
+        es_tandeo = (q["Valor"] <= 0.15).mean() > 0.35
+
+    # Evaluar interrupción externa por P1 solo si NO califica como tandeo cíclico regular
+    if not es_tandeo and not p1.empty:
         p1["SoloFecha"] = p1["FechaHora"].dt.strftime('%Y-%m-%d')
         p1["EsBaja"] = p1["Valor"] < 0.15
-        
-        # Agrupar por día y calcular el porcentaje de tiempo en cero/baja presión
         resumen_diario_p1 = p1.groupby("SoloFecha")["EsBaja"].mean()
-        # Filtrar los días que tienen caídas severas prolongadas (más del 15% del día)
         fechas_falla_p1 = set(resumen_diario_p1[resumen_diario_p1 > 0.15].index)
         hay_interrupcion = len(fechas_falla_p1) > 0
 
@@ -217,13 +230,10 @@ if archivo is not None and ejecutar_calculo:
     p1_prom = p1["Valor"].mean() if not p1.empty else 0.0
     p2_prom = p2["Valor"].mean() if not p2.empty else 0.0
     
-    # Regla de Tandeo existente (Si el caudal pasa en cero más del 40% de toda la muestra)
-    es_tandeo = (q["Valor"] == 0).mean() > 0.4 if not q.empty else False
-    
     if es_tandeo:
         q_prom = q["Valor"].mean() if not q.empty else 0.0
     else:
-        # Suministro continuo: Filtra ceros e interrupciones prolongadas para el promedio
+        # Suministro continuo clásico: Remueve periodos de fallas externas ajenas para el cálculo real
         q_valido_prom = q.copy()
         if hay_interrupcion:
             q_valido_prom = q_valido_prom[~q_valido_prom["FechaHora"].dt.strftime('%Y-%m-%d').isin(fechas_falla_p1)]
@@ -239,34 +249,39 @@ if archivo is not None and ejecutar_calculo:
         volumen = 0.0
         f_min = f_max = "-/-/-"
 
-    # 4. Cálculo de MNF Real Excluyendo Horas de Falla de Suministro
+    # 4. Cálculo Inteligente y Ponderado del MNF
     nmf = None
     if not q.empty:
         q_mnf = q.copy()
-        q_mnf["SoloFecha"] = q_mnf["FechaHora"].dt.strftime('%Y-%m-%d')
         
-        # Si NO es tandeo y se identifican caídas severas externas, removemos esos días completos
-        if not es_tandeo and hay_interrupcion:
-            q_mnf = q_mnf[~q_mnf["SoloFecha"].isin(fechas_falla_p1)]
-            
-        # Filtro estricto del horario nocturno establecido (2:00 AM a 4:00 AM)
-        q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)].copy()
-        
-        # Adicionalmente, removemos cualquier valor remanente que marque <= 0.05 lps sólo si no es un tandeo
-        if not es_tandeo:
-            q_noche = q_noche[q_noche["Valor"] > 0.05]
-            
-        # Se obtiene el mínimo real de la muestra limpia restante
-        if not q_noche.empty:
-            nmf = q_noche["Valor"].min()
+        if es_tandeo:
+            # LÓGICA PARA TANDEO: Extrae el comportamiento mínimo real durante las horas de operación activa
+            # Filtramos el horario nocturno o los momentos en que la red sí se encuentra presurizada (> 0.5 lps) 
+            # para no registrar falsos ceros, ponderando los valles estables de consumo del sector.
+            q_activos_nocturnos = q_mnf[(q_mnf["Valor"] > 0.5)]
+            if not q_activos_nocturnos.empty:
+                # Obtenemos el percentil 5 para capturar el mínimo caudal real de demanda sin picos de llenado
+                nmf = q_activos_nocturnos["Valor"].quantile(0.05)
+        else:
+            # LÓGICA PARA SUMINISTRO CONTINUO: Horario estándar descartando días con fallas externas en P1
+            q_mnf["SoloFecha"] = q_mnf["FechaHora"].dt.strftime('%Y-%m-%d')
+            if hay_interrupcion:
+                q_mnf = q_mnf[~q_mnf["SoloFecha"].isin(fechas_falla_p1)]
+                
+            q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)].copy()
+            q_noche = q_noche[q_noche["Valor"] > 0.05] # Filtrar ruidos espurios cercanos a cero absoluto
+            if not q_noche.empty:
+                nmf = q_noche["Valor"].min()
 
     # =====================================================
     # INDICADORES DEL SECTOR
     # =====================================================
     st.markdown("### Indicadores del Sector")
     
-    # Despliegue dinámico del aviso de alerta por corte/falla externa
-    if hay_interrupcion:
+    # Despliegue condicional de Avisos/Alertas Inteligentes
+    if es_tandeo:
+        st.markdown('<div class="alerta-tandeo">🔄 Suministro Intermitente (Tandeo Detectado)</div>', unsafe_allow_html=True)
+    elif hay_interrupcion:
         st.markdown('<div class="alerta-suministro">⚠️ Detección de interrupción en el suministro</div>', unsafe_allow_html=True)
     
     c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -304,14 +319,14 @@ if archivo is not None and ejecutar_calculo:
     with col_grafico:
         fig = go.Figure()
         
-        # Graficado seguro de la curva de caudal
         if not q.empty:
+            # Traza de Caudal Real
             fig.add_trace(go.Scatter(x=q["FechaHora"], y=q["Valor"], mode="lines", name="Q", line=dict(width=2, color="blue")))
             
             # Línea de Caudal Promedio
             fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[q_prom, q_prom], mode="lines", name="Q prom", line=dict(width=1.5, color="red", dash="dot")))
             
-            # Línea de MNF real libre de contaminantes o anomalías externas
+            # Línea de MNF ponderada/calculada según tipo de suministro
             if nmf is not None:
                 fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF", line=dict(width=2, color="green", dash="dash")))
 
