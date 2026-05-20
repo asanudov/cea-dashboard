@@ -13,58 +13,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# NORMALIZACIÓN Y CLASIFICACIÓN
-# =====================================================
-
-def normalizar(texto):
-    if pd.isna(texto):
-        return ""
-    texto = str(texto).strip().lower()
-    texto = ''.join(
-        c for c in unicodedata.normalize('NFD', texto)
-        if unicodedata.category(c) != 'Mn'
-    )
-    return texto
-
-
-def clasificar_variable(var):
-    v = normalizar(var)
-
-    # --------------------
-    # PRESIÓN 1
-    # --------------------
-    if (
-        "p1" in v or
-        "presion 1" in v or
-        "presión 1" in v
-    ):
-        return "P1"
-
-    # --------------------
-    # PRESIÓN 2
-    # --------------------
-    if (
-        "p2" in v or
-        "presion 2" in v or
-        "presión 2" in v
-    ):
-        return "P2"
-
-    # --------------------
-    # CAUDAL
-    # --------------------
-    if (
-        v == "q" or
-        "caudal" in v or
-        "q (lps)" in v or
-        ("q" in v and "lps" in v)
-    ):
-        return "Q"
-
-    return None
-
-# =====================================================
-# ESTILOS (IGUAL)
+# ESTILOS
 # =====================================================
 
 st.markdown(
@@ -131,18 +80,56 @@ st.markdown(
 )
 
 # =====================================================
+# NORMALIZACIÓN Y VARIABLES
+# =====================================================
+
+def normalizar(texto):
+    if pd.isna(texto):
+        return ""
+    texto = str(texto).strip().lower()
+    texto = ''.join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+    return texto
+
+
+def clasificar_variable(var):
+    v = normalizar(var)
+
+    # PRESIÓN 1
+    if "p1" in v or "presion 1" in v or "presión 1" in v:
+        return "P1"
+
+    # PRESIÓN 2
+    if "p2" in v or "presion 2" in v or "presión 2" in v:
+        return "P2"
+
+    # CAUDAL
+    if v == "q" or "caudal" in v or "q (lps)" in v or ("q" in v and "lps" in v):
+        return "Q"
+
+    return None
+
+# =====================================================
 # HEADER
 # =====================================================
 
-col_logo, col_titulo = st.columns([0.7,4.3])
+col_logo, col_titulo = st.columns([0.7, 4.3])
 
 with col_logo:
     st.markdown("<div style='padding-top:25px;'></div>", unsafe_allow_html=True)
     st.image("logo.png", width=110)
 
 with col_titulo:
-    st.markdown("<h1>Dashboard para Datos de Gestión de Presiones</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>", unsafe_allow_html=True)
+    st.markdown(
+        "<h1 style='margin-bottom:0px;'>Dashboard para Datos de Gestión de Presiones</h1>",
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        "<h3 style='margin-top:0px; color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>",
+        unsafe_allow_html=True
+    )
 
 # =====================================================
 # UPLOAD
@@ -182,11 +169,10 @@ if archivo is not None:
         )
 
         # =====================================================
-        # CLASIFICAR VARIABLES (MEJORADO)
+        # CLASIFICAR VARIABLES
         # =====================================================
 
         df["Tipo"] = df["Variable"].apply(clasificar_variable)
-
         df = df[df["Tipo"].notnull()].copy()
         df = df.sort_values("FechaHora")
 
@@ -241,10 +227,7 @@ if archivo is not None:
 
         else:
 
-            q_noche = q[
-                (q["Hora"] >= 2) &
-                (q["Hora"] < 4)
-            ].copy()
+            q_noche = q[(q["Hora"] >= 2) & (q["Hora"] < 4)].copy()
 
             if not q_noche.empty:
 
@@ -288,20 +271,14 @@ if archivo is not None:
         # TABLA
         # =====================================================
 
-        col_izq, col_der = st.columns([1,2.3])
+        col_izq, col_der = st.columns([1, 2.3])
 
         with col_izq:
 
             st.subheader("📋 Resumen")
 
             resultado = pd.DataFrame({
-                "Indicador": [
-                    "P. aguas arriba",
-                    "P. aguas abajo",
-                    "Q promedio",
-                    "Volumen total",
-                    "MNF"
-                ],
+                "Indicador": ["P. aguas arriba", "P. aguas abajo", "Q promedio", "Volumen total", "MNF"],
                 "Valor": [
                     f"{p1_promedio:.2f}",
                     f"{p2_promedio:.2f}",
@@ -309,7 +286,7 @@ if archivo is not None:
                     f"{volumen_total:.2f}",
                     f"{nmf:.2f}" if nmf is not None else "-"
                 ],
-                "Unidad": ["bar","bar","lps","m³","lps"]
+                "Unidad": ["bar", "bar", "lps", "m³", "lps"]
             })
 
             st.markdown(
@@ -318,7 +295,7 @@ if archivo is not None:
             )
 
         # =====================================================
-        # GRÁFICA (INTACTA)
+        # GRÁFICA (AJUSTADA SOLO LEYENDA)
         # =====================================================
 
         with col_der:
@@ -353,11 +330,28 @@ if archivo is not None:
                 ))
 
             fig.update_layout(
-                height=470,
+                height=420,
+                margin=dict(l=10, r=10, t=40, b=10),
+
                 hovermode="x unified",
-                xaxis=dict(rangeslider=dict(visible=True)),
-                yaxis=dict(range=[q["Valor"].min()*0.9, q["Valor"].max()*1.1]),
-                legend=dict(orientation="h", y=1.02, x=1)
+
+                xaxis=dict(
+                    rangeslider=dict(visible=True),
+                    title="Fecha y hora"
+                ),
+
+                yaxis=dict(
+                    title="Caudal (lps)",
+                    range=[q["Valor"].min()*0.9, q["Valor"].max()*1.1]
+                ),
+
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.08,
+                    xanchor="center",
+                    x=0.5
+                )
             )
 
             st.plotly_chart(fig, use_container_width=True)
