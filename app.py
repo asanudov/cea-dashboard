@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import unicodedata
 
 # =====================================================
 # CONFIGURACIÓN
@@ -12,86 +13,73 @@ st.set_page_config(
 )
 
 # =====================================================
-# ESTILOS
+# NORMALIZADOR DE TEXTO (CLAVE)
+# =====================================================
+
+def normalizar(texto):
+    if pd.isna(texto):
+        return ""
+    texto = str(texto).strip().lower()
+
+    # quitar acentos
+    texto = ''.join(
+        c for c in unicodedata.normalize('NFD', texto)
+        if unicodedata.category(c) != 'Mn'
+    )
+
+    return texto
+
+def clasificar_variable(var):
+    v = normalizar(var)
+
+    # P1
+    if v in ["p1", "presion 1", "presion1"]:
+        return "P1"
+
+    # P2
+    if v in ["p2", "presion 2", "presion2"]:
+        return "P2"
+
+    # CAUDAL
+    if v in ["q", "caudal"]:
+        return "Q"
+
+    return None
+
+# =====================================================
+# ESTILOS (igual que antes, resumido aquí)
 # =====================================================
 
 st.markdown(
     """
     <style>
-
     @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
 
-    html, body, [class*="css"]  {
+    html, body, [class*="css"] {
         font-family: 'Akt', sans-serif !important;
     }
 
-    .block-container{
-        padding-top: 1rem;
-        padding-bottom: 0rem;
-    }
+    .block-container { padding-top: 1rem; padding-bottom: 0rem; }
 
-    h1, h2, h3 {
-        font-family: 'Akt', sans-serif !important;
-        font-weight: 700 !important;
-    }
-
-    .stButton > button {
-        font-family: 'Akt', sans-serif !important;
-        font-weight: 600 !important;
-        border-radius: 10px !important;
-        height: 48px !important;
-        font-size: 16px !important;
-    }
-
-    section[data-testid="stFileUploader"] {
-        font-family: 'Akt', sans-serif !important;
-    }
-
-    section[data-testid="stFileUploader"] * {
-        font-family: 'Akt', sans-serif !important;
-    }
-
-    div[data-testid="stMetric"]{
-        background-color: #f8f9fa;
-        padding: 10px;
-        border-radius: 10px;
-        border: 1px solid #e6e6e6;
-        font-family: 'Akt', sans-serif !important;
-    }
-
-    div[data-testid="stMetric"] * {
-        font-family: 'Akt', sans-serif !important;
-    }
+    h1, h2, h3 { font-family: 'Akt', sans-serif !important; font-weight: 700 !important; }
 
     .tabla-cea {
         width: 100%;
         border-collapse: collapse;
-        font-family: 'Akt', sans-serif !important;
-        font-size: 15px;
-        border-radius: 10px;
-        overflow: hidden;
+        font-family: 'Akt', sans-serif;
     }
 
     .tabla-cea thead th {
-        background-color: #f2f2f2;
-        color: #111;
-        font-weight: 700 !important;
+        background: #f2f2f2;
         padding: 12px;
+        font-weight: 700;
         text-align: center;
-        border-bottom: 1px solid #dddddd;
     }
 
     .tabla-cea tbody td {
-        font-weight: 500 !important;
         padding: 12px;
         text-align: center;
-        border-bottom: 1px solid #eeeeee;
     }
-
-    .tabla-cea tbody tr:hover {
-        background-color: #fafafa;
-    }
-
     </style>
     """,
     unsafe_allow_html=True
@@ -107,8 +95,8 @@ with col_logo:
     st.image("logo.png", width=110)
 
 with col_titulo:
-    st.markdown("<h1 style='margin-bottom:0px;'>Dashboard para Datos de Gestión de Presiones</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='margin-top:0px; color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>", unsafe_allow_html=True)
+    st.markdown("<h1>Dashboard para Datos de Gestión de Presiones</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:#444;'>Desarrollado por M.I. Alan Sañudo</h3>", unsafe_allow_html=True)
 
 # =====================================================
 # UPLOAD
@@ -117,21 +105,7 @@ with col_titulo:
 archivo = st.file_uploader("📂 Subir archivo Excel", type=["xlsx"])
 
 if archivo is None:
-
-    st.markdown("""
-    ### Calcula automáticamente:
-    - Presión aguas arriba promedio (bar)
-    - Presión aguas abajo promedio (bar)
-    - Caudal promedio (lps)
-    - Volumen total (m³)
-    - MNF (Minimum Night Flow)
-    """)
-
-    st.info("⬆️ Carga un archivo para comenzar.")
-
-# =====================================================
-# PROCESAMIENTO
-# =====================================================
+    st.info("Carga un archivo para comenzar.")
 
 if archivo is not None:
 
@@ -161,15 +135,23 @@ if archivo is not None:
             .astype(float)
         )
 
+        # =====================================================
+        # 🔥 CLASIFICAR VARIABLES (NUEVO)
+        # =====================================================
+
+        df["Tipo"] = df["Variable"].apply(clasificar_variable)
+
+        df = df[df["Tipo"].notnull()].copy()
+
         df = df.sort_values("FechaHora")
 
         # =====================================================
-        # FILTROS
+        # SEPARAR VARIABLES
         # =====================================================
 
-        p1 = df[df["Variable"] == "P1"].copy()
-        p2 = df[df["Variable"] == "P2"].copy()
-        q = df[df["Variable"] == "Q"].copy()
+        p1 = df[df["Tipo"] == "P1"].copy()
+        p2 = df[df["Tipo"] == "P2"].copy()
+        q = df[df["Tipo"] == "Q"].copy()
 
         # =====================================================
         # PROMEDIOS
@@ -188,7 +170,7 @@ if archivo is not None:
         volumen_total = q["Volumen_m3"].sum()
 
         # =====================================================
-        # 🔥 NUEVO: EXCLUIR DÍAS CON 0.00 ENTRE 1–4 AM
+        # EXCLUIR DÍAS CON 0 EN 1–4 AM
         # =====================================================
 
         q["Fecha"] = q["FechaHora"].dt.date
@@ -205,19 +187,13 @@ if archivo is not None:
         # MNF
         # =====================================================
 
-        q_noche = q_mnf[
-            (q_mnf["Hora"] >= 2) &
-            (q_mnf["Hora"] < 4)
-        ].copy()
+        q_noche = q_mnf[(q_mnf["Hora"] >= 2) & (q_mnf["Hora"] < 4)].copy()
 
         if not q_noche.empty:
 
             q_noche = q_noche.sort_values("FechaHora")
 
-            intervalo_min = (
-                q_noche["FechaHora"].diff().dt.total_seconds().median()
-            ) / 60
-
+            intervalo_min = q_noche["FechaHora"].diff().dt.total_seconds().median() / 60
             muestras_60min = max(1, int(60 / intervalo_min))
 
             q_noche["Rolling_MNF"] = (
@@ -252,7 +228,7 @@ if archivo is not None:
             col5.metric("MNF", f"{nmf:.2f} lps")
 
         # =====================================================
-        # RESUMEN TABLA
+        # TABLA
         # =====================================================
 
         col_izq, col_der = st.columns([1, 2.3])
@@ -276,32 +252,13 @@ if archivo is not None:
                     f"{volumen_total:.2f}",
                     f"{nmf:.2f}" if nmf is not None else "-"
                 ],
-                "Unidad": [
-                    "bar",
-                    "bar",
-                    "lps",
-                    "m³",
-                    "lps"
-                ]
+                "Unidad": ["bar", "bar", "lps", "m³", "lps"]
             })
 
             st.markdown(
                 resultado.to_html(index=False, classes="tabla-cea"),
                 unsafe_allow_html=True
             )
-
-            if hora_nmf is not None:
-                st.success(
-                    f"""
-                    🌙 MNF detectado
-                    
-                    Hora:
-                    {hora_nmf.strftime('%d/%m/%Y %H:%M')}
-                    
-                    Valor:
-                    {nmf:.2f} lps
-                    """
-                )
 
         # =====================================================
         # GRÁFICA
@@ -317,16 +274,7 @@ if archivo is not None:
                 x=q["FechaHora"],
                 y=q["Valor"],
                 mode="lines",
-                name="Caudal en lps",
-                line=dict(width=2, color="blue")
-            ))
-
-            fig.add_trace(go.Scatter(
-                x=[q["FechaHora"].min(), q["FechaHora"].max()],
-                y=[q_promedio, q_promedio],
-                mode="lines",
-                name="Caudal promedio",
-                line=dict(width=2, color="red", dash="dot")
+                name="Caudal"
             ))
 
             if nmf is not None:
@@ -334,23 +282,8 @@ if archivo is not None:
                     x=[q["FechaHora"].min(), q["FechaHora"].max()],
                     y=[nmf, nmf],
                     mode="lines",
-                    name="MNF",
-                    line=dict(width=2, color="green", dash="dash")
+                    name="MNF"
                 ))
-
-            y_min = q["Valor"].min() * 0.9
-            y_max = q["Valor"].max() * 1.1
-
-            fig.update_layout(
-                height=470,
-                margin=dict(l=10, r=10, t=40, b=10),
-                xaxis_title="Fecha y hora",
-                yaxis_title="Caudal (lps)",
-                hovermode="x unified",
-                xaxis=dict(rangeslider=dict(visible=True)),
-                yaxis=dict(range=[y_min, y_max], fixedrange=True),
-                legend=dict(orientation="h", y=1.02, x=1)
-            )
 
             st.plotly_chart(fig, use_container_width=True)
 
@@ -358,11 +291,9 @@ if archivo is not None:
         # DESCARGA
         # =====================================================
 
-        csv = resultado.to_csv(index=False).encode("utf-8")
-
         st.download_button(
-            label="📥 Descargar resumen",
-            data=csv,
-            file_name="Resumen_Dashboard_CEA.csv",
-            mime="text/csv"
+            "📥 Descargar resumen",
+            resultado.to_csv(index=False).encode("utf-8"),
+            "resumen.csv",
+            "text/csv"
         )
