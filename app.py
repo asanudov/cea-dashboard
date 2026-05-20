@@ -31,7 +31,17 @@ html, body, [class*="css"], div, span, p, h1, h2, h3 {
 }
 
 /* =========================
-   OCULTAR TOGGLE SIDEBAR ICON (keyboard_double)
+   SIDEBAR CLEAN (SIN TEXTO)
+========================= */
+
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] header {
+    display: none !important;
+}
+
+/* =========================
+   OCULTAR ICONO HOVER SIDEBAR (keyboard_double)
 ========================= */
 
 [data-testid="collapsedControl"] {
@@ -43,21 +53,26 @@ html, body, [class*="css"], div, span, p, h1, h2, h3 {
 }
 
 /* =========================
-   FILE UPLOADER CLEAN
+   FILE UPLOADER CLEAN TOTAL
 ========================= */
 
-/* QUITA "UPLOAD" GRANDE */
+/* QUITA UPLOAD GRANDE */
 section[data-testid="stFileUploaderDropzoneLabel"] {
     display: none !important;
 }
 
-/* QUITA INSTRUCCIONES (Browse files etc.) */
+/* QUITA INSTRUCCIONES */
 section[data-testid="stFileUploaderDropzoneInstructions"] {
     display: none !important;
 }
 
-/* QUITA ICONO DEL UPLOADER */
+/* QUITA ICONO */
 section[data-testid="stFileUploader"] svg {
+    display: none !important;
+}
+
+/* QUITA TOOLTIP HOVER */
+div[role="tooltip"] {
     display: none !important;
 }
 
@@ -66,7 +81,7 @@ section[data-testid="stFileUploader"] svg {
 ========================= */
 
 .block-container{
-    padding-top: 1.5rem !important;
+    padding-top: 1.2rem !important;
 }
 
 /* =========================
@@ -93,6 +108,18 @@ section[data-testid="stFileUploader"] svg {
 .kpi-value {
     font-size: 18px;
     font-weight: 600;
+}
+
+/* =========================
+   TÍTULO MÁS PEQUEÑO (1 LÍNEA)
+========================= */
+
+h1 {
+    font-size: 22px !important;
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 10px !important;
 }
 
 </style>
@@ -134,28 +161,20 @@ with st.sidebar:
 
     st.image("logo.png", width=160)
 
-    st.markdown("## Dashboard hidráulico")
-
-    st.markdown("""
-Este dashboard permite:
-
-- Presiones P1 / P2
-- Caudal promedio
-- Volumen total
-- MNF
-- Detección de tandeo
-""")
-
     archivo = st.file_uploader(
         "Cargar archivo Excel",
         type=["xlsx"]
     )
 
 # =====================================================
-# MAIN
+# MAIN TITLE
 # =====================================================
 
-st.title("Dashboard para Datos de Gestión de Presiones")
+st.markdown("## Dashboard de Gestión de Presiones")
+
+# =====================================================
+# EJECUCIÓN
+# =====================================================
 
 if archivo is None:
     st.info("Carga un archivo desde el panel izquierdo.")
@@ -207,17 +226,27 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
     volumen = (q["Valor"] * q["Delta_t"] / 1000).sum()
 
     # =====================================================
-    # MNF
+    # MNF ROBUSTO
     # =====================================================
 
     q_mnf = q.copy()
     q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
+
     q_mnf.loc[q_mnf["Valor_mnf"] == 0, "Valor_mnf"] = pd.NA
     q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].astype("float64")
-    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(limit=2, limit_direction="both")
+
+    q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].interpolate(
+        limit=2,
+        limit_direction="both"
+    )
+
     q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].ffill().bfill()
 
-    q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)]
+    q_noche = q_mnf[
+        (q_mnf["FechaHora"].dt.hour >= 2) &
+        (q_mnf["FechaHora"].dt.hour < 4)
+    ]
+
     nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
 
     rango = f"{q['FechaHora'].min().strftime('%d/%m/%Y')} - {q['FechaHora'].max().strftime('%d/%m/%Y')}"
@@ -255,6 +284,7 @@ if archivo is not None and st.button("▶ Ejecutar cálculo"):
     col1, col2 = st.columns([1, 2.3])
 
     with col1:
+
         st.subheader("📋 Resumen")
 
         resumen = pd.DataFrame({
