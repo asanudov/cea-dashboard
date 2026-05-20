@@ -19,7 +19,7 @@ st.set_page_config(
 st.markdown(
 """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Akt:wght=400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
 
 /* 1. FUENTE GLOBAL */
 html, body, [class*="css"], h1, h2, h3, .stMarkdown, .kpi-box {
@@ -41,9 +41,9 @@ header[data-testid="stHeader"] {
     margin-top: 0rem !important;
 }
 
-/* --- JERARQUÍA DE TÍTULOS (CORREGIDA) --- */
+/* --- JERARQUÍA DE TÍTULOS --- */
 h1 {
-    font-size: 26px !important; /* Título principal grande y dominante */
+    font-size: 26px !important; 
     margin-top: 0px !important;
     margin-bottom: 8px !important; 
     padding-top: 0px !important;
@@ -51,7 +51,6 @@ h1 {
     line-height: 1.2 !important;
 }
 
-/* Subtítulos más pequeños para marcar una jerarquía clara */
 h3, .section-subtitle {
     font-size: 18px !important; 
     margin-top: 5px !important;
@@ -68,7 +67,7 @@ h3, .section-subtitle {
     margin-bottom: 12px;
 }
 
-/* 3. ESTILO DE LA TABLA RESUMEN */
+/* 3. ESTILOS DE LA TABLA RESUMEN */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -93,7 +92,6 @@ section[data-testid="stSidebar"] header {
 }
 [data-testid="collapsedControl"] { display: none !important; }
 
-/* Botón sidebar */
 div.stButton > button {
     width: 100%;
     margin-top: 10px;
@@ -175,7 +173,7 @@ if archivo is None:
     st.info("Carga un archivo desde el panel izquierdo y presiona 'Ejecutar cálculo'.")
 
 if archivo is not None and ejecutar_calculo:
-    # Procesamiento
+    # 1. Procesamiento y homologación de datos
     df = pd.read_excel(archivo)
     df.columns = df.columns.str.strip()
     df = df.rename(columns={"Data Logger": "Variable", "Fecha y hora": "FechaHora", "Media": "Valor"})
@@ -185,29 +183,60 @@ if archivo is not None and ejecutar_calculo:
     df = df[df["Tipo"].notnull()].copy()
     df = df.sort_values("FechaHora")
 
-    p1 = df[df["Tipo"] == "P1"]
-    p2 = df[df["Tipo"] == "P2"]
-    q = df[df["Tipo"] == "Q"]
+    # Separación por variables en dataframes limpios alineados por tiempo
+    df_pivot = df.pivot_table(index="FechaHora", columns="Tipo", values="Valor", aggfunc="mean").reset_index()
+    df_pivot = df_pivot.sort_values("FechaHora")
+    
+    # Rellenar columnas faltantes por si acaso
+    for col in ["P1", "P2", "Q"]:
+        if col not in df_pivot.columns:
+            df_pivot[col] = 0.0
 
-    # KPIs
-    p1_prom = p1["Valor"].mean()
-    p2_prom = p2["Valor"].mean()
-    q["Hora"] = q["FechaHora"].dt.hour
-    es_tandeo = (q["Valor"] == 0).mean() > 0.4
-    q_prom = q["Valor"].mean() if es_tandeo else q[q["Valor"] > 0]["Valor"].mean()
-    q["Delta_t"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
-    volumen = (q["Valor"] * q["Delta_t"] / 1000).sum()
+    # 2. Identificación de anomalías de red (Problema de suministro en la entrada P1)
+    # Si la presión P1 cae por debajo de 0.1 bar, asumimos falla de suministro externo ajeno al DMA
+    df_pivot["Falla_Suministro_P1"] = df_pivot["P1"] < 0.1
 
-    # MNF
-    q_mnf = q.copy()
-    q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
-    q_mnf.loc[q_mnf["Valor_mnf"] == 0, "Valor_mnf"] = pd.NA
+    p1_data = df_pivot["P1"].dropna()
+    p2_data = df_pivot["P2"].dropna()
+    q_data = df_pivot[["FechaHora", "Q"]].dropna()
+
+    # 3. Cálculos de Indicadores (KPIs)
+    p1_prom = p1_data.mean()
+    p2_prom = p2_data.mean()
+    
+    # Regla de tandeo (Independiente: si el flujo es 0 durante más del 40% de la muestra completa)
+    es_tandeo = (q_data["Q"] == 0).mean() > 0.4
+    
+    if es_tandeo:
+        q_prom = q_data["Q"].mean()
+    else:
+        q_prom = q_data[q_data["Q"] > 0]["Q"].mean()
+
+    # Cálculo del volumen acumulado
+    q_data["Delta_t"] = q_data["FechaHora"].diff().dt.total_seconds().fillna(0)
+    volumen = (q_data["Q"] * q_data["Delta_t"] / 1000).sum()
+
+    # 4. Cálculo del MNF discriminando "Problema en Suministro (P1)"
+    # Creamos una serie limpia para interpolación y análisis nocturno
+    q_mnf = df_pivot[["FechaHora", "Q", "Falla_Suministro_P1"]].copy()
+    q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Q"], errors="coerce")
+    
+    # Si hay tandeo, los ceros estructurales se mantienen.
+    # Pero si NO hay tandeo y el flujo es 0 o P1 falló, lo descartamos de la muestra nocturna del MNF
+    if not es_tandeo:
+        q_mnf.loc[(q_mnf["Valor_mnf"] == 0) | (q_mnf["Falla_Suministro_P1"] == True), "Valor_mnf"] = pd.NA
+    else:
+        q_mnf.loc[q_mnf["Falla_Suministro_P1"] == True, "Valor_mnf"] = pd.NA
+
+    # Interpolamos fallas cortas y completamos el dataset nocturno válido
     q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].astype("float64").interpolate(limit=2).ffill().bfill()
+    
+    # Filtro de horario nocturno de mínimos (2:00 AM - 4:00 AM)
     q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)]
     nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
 
-    f_min = q['FechaHora'].min().strftime('%d/%m/%Y')
-    f_max = q['FechaHora'].max().strftime('%d/%m/%Y')
+    f_min = df_pivot['FechaHora'].min().strftime('%d/%m/%Y')
+    f_max = df_pivot['FechaHora'].max().strftime('%d/%m/%Y')
 
     # =====================================================
     # INDICADORES DEL SECTOR
@@ -230,11 +259,10 @@ if archivo is not None and ejecutar_calculo:
         unsafe_allow_html=True
     )
 
-    # Línea divisoria compacta
     st.markdown('<div class="compact-divider"></div>', unsafe_allow_html=True)
 
     # =====================================================
-    # CUERPO DEL DASHBOARD
+    # CUERPO DEL DASHBOARD (TABLA Y GRÁFICO)
     # =====================================================
     col_tabla, col_grafico = st.columns([1, 2.3])
 
@@ -249,10 +277,16 @@ if archivo is not None and ejecutar_calculo:
 
     with col_grafico:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=q["FechaHora"], y=q["Valor"], mode="lines", name="Q", line=dict(width=2, color="blue")))
-        fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[q_prom, q_prom], mode="lines", name="Q prom", line=dict(width=2, color="red", dash="dot")))
+        
+        # Línea de Caudal (Q)
+        fig.add_trace(go.Scatter(x=df_pivot["FechaHora"], y=df_pivot["Q"], mode="lines", name="Q", line=dict(width=2, color="blue")))
+        
+        # Línea de Q promedio
+        fig.add_trace(go.Scatter(x=[df_pivot["FechaHora"].min(), df_pivot["FechaHora"].max()], y=[q_prom, q_prom], mode="lines", name="Q prom", line=dict(width=2, color="red", dash="dot")))
+        
+        # Línea de MNF (Si existe)
         if nmf:
-            fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF", line=dict(width=2, color="green", dash="dash")))
+            fig.add_trace(go.Scatter(x=[df_pivot["FechaHora"].min(), df_pivot["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF", line=dict(width=2, color="green", dash="dash")))
 
         fig.update_layout(
             height=460, 
