@@ -21,27 +21,45 @@ st.markdown(
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Akt:wght@400;500;600;700&display=swap');
 
-/* 1. FUENTE GLOBAL SIN ROMPER ICONOS */
+/* 1. FUENTE GLOBAL */
 html, body, [class*="css"], h1, h2, h3, .stMarkdown, .kpi-box {
     font-family: 'Akt', sans-serif !important;
 }
 
-/* 2. OCULTAR TOTALMENTE EL MENU SUPERIOR Y ELIMINAR EL ESPACIO EN BLANCO */
+/* 2. ELIMINAR CABECERA Y SUBIR CONTENIDO AL MÁXIMO */
 header[data-testid="stHeader"] {
     visibility: hidden;
     display: none !important;
-    height: 0px !important;
 }
 
-/* AJUSTE SEGURO DE CONTENEDORES PARA SUBIR EL TITULO SIN OCULTARLO */
 [data-testid="stAppViewContainer"] {
     padding-top: 0rem !important;
 }
 
 [data-testid="stMainBlockContainer"] {
-    padding-top: 1rem !important; /* Espacio mínimo seguro para que se vea el título */
-    padding-bottom: 1rem !important;
+    padding-top: 0.5rem !important; /* Casi pegado al borde superior */
     margin-top: 0rem !important;
+}
+
+/* REDUCIR ESPACIOS ENTRE ELEMENTOS (ZONAS ROJAS) */
+h1 {
+    font-size: 24px !important;
+    margin-top: 0px !important;
+    margin-bottom: 5px !important; /* Menos espacio bajo el título principal */
+    padding-top: 0px !important;
+}
+
+h3 {
+    margin-top: 5px !important;
+    margin-bottom: 5px !important;
+    padding-bottom: 0px !important;
+}
+
+/* Sustituto compacto para st.divider() */
+.compact-divider {
+    border-top: 1px solid #e6e6e6;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 /* 3. ESTILO DE LA TABLA RESUMEN */
@@ -50,13 +68,9 @@ table {
     border-collapse: collapse;
 }
 table thead th {
-    background-color: #D1E5F0 !important; /* Azul claro */
+    background-color: #D1E5F0 !important;
     color: #1E293B !important;
     text-align: left !important;
-    padding: 10px !important;
-    border: 1px solid #e6e6e6 !important;
-}
-table td {
     padding: 8px !important;
     border: 1px solid #e6e6e6 !important;
 }
@@ -67,67 +81,40 @@ section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] header {
     display: none !important;
 }
-[data-testid="collapsedControl"] {
-    display: none !important;
-}
-section[data-testid="stFileUploaderDropzoneLabel"] {
-    display: none !important;
-}
-section[data-testid="stFileUploaderDropzoneInstructions"] {
-    display: none !important;
-}
+[data-testid="collapsedControl"] { display: none !important; }
 
-/* Botón del sidebar a lo ancho */
+/* Botón sidebar */
 div.stButton > button {
     width: 100%;
     margin-top: 10px;
 }
 
-/* 5. KPI BOX GENÉRICOS */
-.kpi-box {
+/* 5. KPI BOX - TÍTULO NEGRITA, VALOR NORMAL */
+.kpi-box, .kpi-periodo {
     background-color: #f8f9fa;
     border: 1px solid #e6e6e6;
     border-radius: 10px;
     padding: 10px;
-    height: 95px;
+    height: 90px;
     text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
-.kpi-title { font-size: 14px; font-weight: 600; }
-.kpi-value { font-size: 18px; font-weight: 600; }
-
-/* 6. RECUADRO REDUCIDO PARA EL PERIODO (COMPACTO) */
-.kpi-periodo {
-    background-color: #f8f9fa;
-    border: 1px solid #e6e6e6;
-    border-radius: 10px;
-    padding: 8px;
-    height: 95px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+.kpi-title { 
+    font-size: 13px; 
+    font-weight: 700 !important; /* Títulos en Negrita */
+    margin-bottom: 3px;
 }
-.kpi-periodo .kpi-title {
-    font-size: 11px !important;
-    font-weight: 600;
-}
-.kpi-periodo .kpi-value {
-    font-size: 12px !important;
-    font-weight: 600;
-    line-height: 1.3;
+.kpi-value { 
+    font-size: 17px; 
+    font-weight: 400 !important; /* Valores normales */
 }
 
-/* 7. TÍTULO PRINCIPAL */
-h1 {
-    font-size: 26px !important;
-    margin-top: 0px !important;
-    margin-bottom: 15px !important;
-    color: #1E293B;
-    line-height: 1.2 !important;
-}
+/* Estilo específico para Periodo (C6) */
+.kpi-periodo .kpi-title { font-size: 11px; font-weight: 700 !important; }
+.kpi-periodo .kpi-value { font-size: 12px; font-weight: 400 !important; line-height: 1.2; }
+
 </style>
 """,
 unsafe_allow_html=True
@@ -158,19 +145,18 @@ with st.sidebar:
     st.image("logo.png", width=160)
     st.markdown("""
     Calcula automáticamente desde la hoja de excel de cualquier ConDor de SkyPlatform:
-    - **Presión aguas arriba promedio** (bar)
-    - **Presión aguas abajo promedio** (bar)
+    - **Presión aguas arriba** (bar)
+    - **Presión aguas abajo** (bar)
     - **Caudal promedio** (lps)
     - **Volumen total** ($m^3$)
     - **MNF** (Minimum Night Flow)
     """)
     st.write("---")
-    
     archivo = st.file_uploader("Cargar archivo Excel", type=["xlsx"])
     ejecutar_calculo = st.button("▶ Ejecutar cálculo")
 
 # =====================================================
-# TÍTULO E INTERFAZ PRINCIPAL
+# INTERFAZ PRINCIPAL
 # =====================================================
 
 st.title("Dashboard de Indicadores en un DMA")
@@ -179,7 +165,7 @@ if archivo is None:
     st.info("Carga un archivo desde el panel izquierdo y presiona 'Ejecutar cálculo'.")
 
 if archivo is not None and ejecutar_calculo:
-    # Procesamiento de datos
+    # Procesamiento
     df = pd.read_excel(archivo)
     df.columns = df.columns.str.strip()
     df = df.rename(columns={"Data Logger": "Variable", "Fecha y hora": "FechaHora", "Media": "Valor"})
@@ -193,7 +179,7 @@ if archivo is not None and ejecutar_calculo:
     p2 = df[df["Tipo"] == "P2"]
     q = df[df["Tipo"] == "Q"]
 
-    # Cálculos de KPIs
+    # KPIs
     p1_prom = p1["Valor"].mean()
     p2_prom = p2["Valor"].mean()
     q["Hora"] = q["FechaHora"].dt.hour
@@ -202,22 +188,21 @@ if archivo is not None and ejecutar_calculo:
     q["Delta_t"] = q["FechaHora"].diff().dt.total_seconds().fillna(0)
     volumen = (q["Valor"] * q["Delta_t"] / 1000).sum()
 
-    # MNF Filtrado
+    # MNF
     q_mnf = q.copy()
     q_mnf["Valor_mnf"] = pd.to_numeric(q_mnf["Valor"], errors="coerce")
     q_mnf.loc[q_mnf["Valor_mnf"] == 0, "Valor_mnf"] = pd.NA
     q_mnf["Valor_mnf"] = q_mnf["Valor_mnf"].astype("float64").interpolate(limit=2).ffill().bfill()
-    
     q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)]
     nmf = q_noche["Valor_mnf"].min() if not q_noche.empty else None
 
-    fecha_min = q['FechaHora'].min().strftime('%d/%m/%Y')
-    fecha_max = q['FechaHora'].max().strftime('%d/%m/%Y')
+    f_min = q['FechaHora'].min().strftime('%d/%m/%Y')
+    f_max = q['FechaHora'].max().strftime('%d/%m/%Y')
 
     # =====================================================
-    # INDICADORES (KPIs)
+    # INDICADORES DEL SECTOR
     # =====================================================
-    st.markdown("### INDICADORES")
+    st.markdown("### Indicadores del Sector")
     
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     
@@ -230,18 +215,13 @@ if archivo is not None and ejecutar_calculo:
     kpi(c4, "Volumen", f"{volumen:.2f} m³")
     kpi(c5, "MNF (lps)", f"{nmf:.2f}" if nmf else "-")
     
-    # Renderizado exclusivo reducido para Periodo
     c6.markdown(
-        f"""
-        <div class="kpi-periodo">
-            <div class="kpi-title">Periodo</div>
-            <div class="kpi-value">{fecha_min}<br>–<br>{fecha_max}</div>
-        </div>
-        """, 
+        f'<div class="kpi-periodo"><div class="kpi-title">Periodo</div><div class="kpi-value">{f_min}<br>–<br>{f_max}</div></div>', 
         unsafe_allow_html=True
     )
 
-    st.divider()
+    # Línea divisoria compacta
+    st.markdown('<div class="compact-divider"></div>', unsafe_allow_html=True)
 
     # =====================================================
     # CUERPO DEL DASHBOARD
@@ -265,9 +245,10 @@ if archivo is not None and ejecutar_calculo:
             fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF", line=dict(width=2, color="green", dash="dash")))
 
         fig.update_layout(
-            height=500, 
+            height=480, 
+            margin=dict(t=20, b=20, l=10, r=10),
             hovermode="x unified", 
             xaxis=dict(rangeslider=dict(visible=True), type="date"),
-            legend=dict(orientation="h", y=1.15, x=0.5, xanchor="center")
+            legend=dict(orientation="h", y=1.1, x=0.5, xanchor="center")
         )
         st.plotly_chart(fig, use_container_width=True)
