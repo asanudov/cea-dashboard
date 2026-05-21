@@ -215,7 +215,7 @@ if archivo is not None and ejecutar_calculo:
     fechas_falla_p1 = set()
 
     if not q.empty:
-        # Tandeo detectado si pasa cerrado/mínimo (< 0.15 lps) más del 35% del tiempo total
+        # Tandeo detectado si pasa cerrado o en cero relativo (< 0.15 lps) más del 35% del tiempo total
         es_tandeo = (q["Valor"] <= 0.15).mean() > 0.35
 
     if not es_tandeo and not p1.empty:
@@ -232,6 +232,7 @@ if archivo is not None and ejecutar_calculo:
     if es_tandeo:
         q_prom = q["Valor"].mean() if not q.empty else 0.0
     else:
+        # Suministro continuo clásico: Remueve periodos de fallas externas ajenas para el cálculo real
         q_valido_prom = q.copy()
         if hay_interrupcion:
             q_valido_prom = q_valido_prom[~q_valido_prom["FechaHora"].dt.strftime('%Y-%m-%d').isin(fechas_falla_p1)]
@@ -247,7 +248,7 @@ if archivo is not None and ejecutar_calculo:
         volumen = 0.0
         f_min = f_max = "-/-/-"
 
-    # 4. Cálculo de MNF e Indicadores de Estrés por Tandeo (Pico de Apertura)
+    # 4. Cálculo de MNF de Horario Estándar Nocturno
     nmf = None
     q_pico_apertura = None
     
@@ -255,24 +256,18 @@ if archivo is not None and ejecutar_calculo:
         q_mnf = q.copy()
         
         if es_tandeo:
-            # A. Extraemos el MNF real (Demanda base en periodos estables con red llena)
-            q_activos = q_mnf[q_mnf["Valor"] > 0.5]
-            if not q_activos.empty:
-                nmf = q_activos["Valor"].quantile(0.05)
-                
-            # B. CRÍTICO: Identificar el Pico de Apertura de la Válvula
-            # Buscamos el valor máximo absoluto del caudal que represente ese transitorio de llenado brusco
             q_pico_apertura = q_mnf["Valor"].max()
             
-        else:
-            q_mnf["SoloFecha"] = q_mnf["FechaHora"].dt.strftime('%Y-%m-%d')
-            if hay_interrupcion:
-                q_mnf = q_mnf[~q_mnf["SoloFecha"].isin(fechas_falla_p1)]
-                
-            q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)].copy()
-            q_noche = q_noche[q_noche["Valor"] > 0.05]
-            if not q_noche.empty:
-                nmf = q_noche["Valor"].min()
+        # Para resguardar la lógica e indicadores matemáticos, el MNF siempre medirá el mínimo absoluto 
+        # registrado estrictamente en el horario nocturno de menor actividad (2:00 AM a 4:00 AM)
+        q_mnf["SoloFecha"] = q_mnf["FechaHora"].dt.strftime('%Y-%m-%d')
+        if not es_tandeo and hay_interrupcion:
+            q_mnf = q_mnf[~q_mnf["SoloFecha"].isin(fechas_falla_p1)]
+            
+        q_noche = q_mnf[(q_mnf["FechaHora"].dt.hour >= 2) & (q_mnf["FechaHora"].dt.hour < 4)].copy()
+        
+        if not q_noche.empty:
+            nmf = q_noche["Valor"].min()
 
     # =====================================================
     # INDICADORES DEL SECTOR
@@ -340,7 +335,7 @@ if archivo is not None and ejecutar_calculo:
             fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[q_prom, q_prom], mode="lines", name="Q prom", line=dict(width=1.5, color="red", dash="dot")))
             
             if nmf is not None:
-                fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF Base", line=dict(width=2, color="green", dash="dash")))
+                fig.add_trace(go.Scatter(x=[q["FechaHora"].min(), q["FechaHora"].max()], y=[nmf, nmf], mode="lines", name="MNF", line=dict(width=2, color="green", dash="dash")))
             
             # Dibujar línea indicadora del pico crítico de apertura si hay tandeo
             if es_tandeo and q_pico_apertura is not None:
